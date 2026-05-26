@@ -1,0 +1,217 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 150 20% 98%;
+    --foreground: 220 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 12%;
+
+    --primary: 152 68% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 70% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 150 15% 93%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 270 55% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 152 68% 40%;
+
+    --radius: 1rem;
+
+    --success: 152 68% 40%;
+    --warning: 38 92% 55%;
+    --info: 220 70% 55%;
+
+    /* Category colors */
+    --cat-food: 15 85% 55%;
+    --cat-transport: 200 75% 50%;
+    --cat-shopping: 320 70% 55%;
+    --cat-entertainment: 270 65% 55%;
+    --cat-bills: 45 85% 50%;
+    --cat-health: 340 75% 55%;
+    --cat-education: 195 80% 45%;
+    --cat-salary: 152 68% 40%;
+    --cat-freelance: 175 60% 45%;
+    --cat-investment: 260 60% 55%;
+    --cat-gift: 330 65% 60%;
+    --cat-other: 220 15% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(152, 68%, 40%), hsl(170, 60%, 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(220, 70%, 55%), hsl(270, 55%, 55%));
+    --gradient-warm: linear-gradient(135deg, hsl(15, 85%, 55%), hsl(45, 90%, 55%));
+    --gradient-cool: linear-gradient(135deg, hsl(195, 80%, 45%), hsl(220, 70%, 55%));
+    --gradient-pink: linear-gradient(135deg, hsl(320, 70%, 55%), hsl(340, 75%, 55%));
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%), hsl(150, 20%, 97%));
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 150 15% 93%;
+
+    --card: 220 25% 12%;
+    --card-foreground: 150 15% 93%;
+
+    --popover: 220 25% 12%;
+    --popover-foreground: 150 15% 93%;
+
+    --primary: 152 68% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 70% 60%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 20% 18%;
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 270 55% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 152 68% 45%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(152, 68%, 35%), hsl(170, 60%, 38%));
+    --gradient-accent: linear-gradient(135deg, hsl(220, 70%, 50%), hsl(270, 55%, 50%));
+    --gradient-warm: linear-gradient(135deg, hsl(15, 80%, 45%), hsl(45, 85%, 45%));
+    --gradient-cool: linear-gradient(135deg, hsl(195, 75%, 38%), hsl(220, 65%, 48%));
+    --gradient-pink: linear-gradient(135deg, hsl(320, 65%, 45%), hsl(340, 70%, 50%));
+    --gradient-card: linear-gradient(145deg, hsl(220, 25%, 12%), hsl(220, 25%, 14%));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+    background-image:
+      radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0);
+    background-size: 28px 28px;
+  }
+}
+
+.texture-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+.card-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-lg border border-border/50 shadow-lg;
+  }
+  
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+
+  .gradient-cool {
+    background: var(--gradient-cool);
+  }
+
+  .gradient-pink {
+    background: var(--gradient-pink);
+  }
+
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-accent {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.3); }
+    50% { box-shadow: 0 0 16px 4px hsl(var(--primary) / 0.15); }
+  }
+
+  @keyframes count-up {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.4s ease-out both;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-count-up {
+    animation: count-up 0.3s ease-out both;
+  }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+}
