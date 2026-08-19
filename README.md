@@ -2,6 +2,8 @@
 
 **FlowFi** is a modern, cross-platform personal finance management application designed to help users track expenses, manage budgets, analyze spending trends, and achieve financial freedom. Built with React, TypeScript, Tailwind CSS, Firebase, and Capacitor for native Android deployment.
 
+🚀 **Live Demo**: [https://flowfi-iota.vercel.app](https://flowfi-iota.vercel.app/)
+
 ---
 
 ## 🌟 Key Features
@@ -124,9 +126,10 @@ flowfi/
 
 ## 🌐 Deployment
 
-The web app is configured for seamless deployment on **Vercel** or **Netlify**.
+The web app is live and deployed on **Vercel**:
+🔗 **Live URL**: [https://flowfi-iota.vercel.app](https://flowfi-iota.vercel.app/)
 
-> **Note for Firebase Auth on Production**: Ensure your deployment domain (e.g. `your-app.vercel.app`) is added to **Firebase Console -> Authentication -> Settings -> Authorized Domains**.
+> **Important for Firebase Auth**: Make sure `flowfi-iota.vercel.app` is added to **Firebase Console -> Authentication -> Settings -> Authorized Domains** so Google Sign-In works on production.
 
 ---
 
