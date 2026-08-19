@@ -2,7 +2,8 @@
 
 **FlowFi** is a modern, cross-platform personal finance management application designed to help users track expenses, manage budgets, analyze spending trends, and achieve financial freedom. Built with React, TypeScript, Tailwind CSS, Firebase, and Capacitor for native Android deployment.
 
-🚀 **Live Demo**: [https://flowfi-iota.vercel.app](https://flowfi-iota.vercel.app/)
+🚀 **Live Demo**: [https://flowfi-iota.vercel.app](https://flowfi-iota.vercel.app/)  
+🎨 **Figma Prototype**: [FlowFi Figma Prototype](https://www.figma.com/proto/YqFZkrPItoHMD0Z2QvCDKW/Flow-Fi?node-id=3-2&t=ldkqLoekFaFAZKXs-1)
 
 ---
 
@@ -121,6 +122,13 @@ flowfi/
 ├── vite.config.ts         # Vite bundler configuration
 └── package.json           # Dependencies and scripts
 ```
+
+---
+
+## 🎨 UI/UX Design & Prototype
+
+Explore the interactive UI/UX prototype built on Figma:
+- 🔗 **Interactive Figma Prototype**: [View FlowFi Prototype](https://www.figma.com/proto/YqFZkrPItoHMD0Z2QvCDKW/Flow-Fi?node-id=3-2&t=ldkqLoekFaFAZKXs-1)
 
 ---
 
