@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency, CATEGORY_CSS, CATEGORY_BG, getStreak } from "@/lib/storage";
+import { formatCurrency, CATEGORY_CSS, CATEGORY_BG, getStreak, calculateStreakFromTransactions } from "@/lib/storage";
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, AlertTriangle, Smile, Meh, Frown, Flame, Target, ArrowRight, Lightbulb, PiggyBank, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -106,7 +106,7 @@ export default function Dashboard() {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
-    const streak = getStreak(user.uid);
+    const streak = Math.max(calculateStreakFromTransactions(txns), getStreak(user.uid));
     const savingsProgress = user.savingsGoal && user.savingsGoal > 0 ? Math.min((Math.max(0, bal) / user.savingsGoal) * 100, 100) : 0;
 
     // Generate personalized money-saving tips

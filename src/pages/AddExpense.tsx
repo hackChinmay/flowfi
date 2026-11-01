@@ -8,6 +8,7 @@ import { Check, Sparkles } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { updateStreak } from "@/lib/storage";
 
 export default function AddExpense() {
   const { user } = useAuth();
@@ -55,7 +56,10 @@ export default function AddExpense() {
         category,
         description: description || "",
         createdAt: serverTimestamp(),
+        date: new Date().toISOString(),
       });
+
+      updateStreak(user.uid);
 
       // UI feedback
       setAdded(true);

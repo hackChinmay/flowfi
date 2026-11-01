@@ -1,13 +1,13 @@
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Moon, Sun, User, Mail, Briefcase, Wallet, Pencil, Check, X, Target, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getStreak, formatCurrency } from "@/lib/storage";
+import { getStreak, calculateStreakFromTransactions, formatCurrency } from "@/lib/storage";
 import { useTheme } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -19,20 +19,51 @@ export default function Profile() {
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const dark = theme === "dark";
-  const [limit, setLimit] = useState(user?.spendingLimit?.toString() || "10000");
+  const [limit, setLimit] = useState(user?.spendingLimit ? user.spendingLimit.toString() : "10000");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ fullName: "", gender: "", profession: "" });
-  const [savingsGoal, setSavingsGoal] = useState(user?.savingsGoal?.toString() || "5000");
+  const [editForm, setEditForm] = useState({ fullName: "", gender: "Male", profession: PROFESSIONS[0] });
+  const [savingsGoal, setSavingsGoal] = useState(user?.savingsGoal ? user.savingsGoal.toString() : "5000");
   const [savingsGoalName, setSavingsGoalName] = useState(user?.savingsGoalName || "Emergency Fund");
+  const [txns, setTxns] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {
-      setLimit(user.spendingLimit?.toString() || "0");
-      setSavingsGoal(user.savingsGoal?.toString() || "0");
-      setSavingsGoalName(user.savingsGoalName || "Emergency Fund");
+      if (user.spendingLimit !== undefined && user.spendingLimit !== null) {
+        setLimit(user.spendingLimit.toString());
+      }
+      if (user.savingsGoal !== undefined && user.savingsGoal !== null) {
+        setSavingsGoal(user.savingsGoal.toString());
+      }
+      if (user.savingsGoalName) {
+        setSavingsGoalName(user.savingsGoalName);
+      }
     }
   }, [user]);
 
+  // Real-time transactions for streak calculation
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const q = query(
+      collection(db, "transactions"),
+      where("userId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setTxns(data);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const streak = useMemo(() => {
+    if (!user) return 0;
+    return Math.max(calculateStreakFromTransactions(txns), getStreak(user.uid));
+  }, [txns, user]);
 
   const handleLogout = () => { 
     signOut(); 
@@ -43,7 +74,10 @@ export default function Profile() {
     if (!user) return;
 
     const val = Number(limit);
-    if (val <= 0) return;
+    if (isNaN(val) || val < 0) {
+      toast({ title: "Invalid Limit", description: "Please enter a valid amount", variant: "destructive" });
+      return;
+    }
 
     try {
       await updateDoc(doc(db, "users", user.uid), {
@@ -56,6 +90,7 @@ export default function Profile() {
       });
     } catch (err) {
       console.error(err);
+      toast({ title: "Error", description: "Failed to update spending limit", variant: "destructive" });
     }
   };
 
@@ -63,20 +98,24 @@ export default function Profile() {
     if (!user) return;
 
     const val = Number(savingsGoal);
-    if (val <= 0) return;
+    if (isNaN(val) || val < 0) {
+      toast({ title: "Invalid Goal", description: "Please enter a valid amount", variant: "destructive" });
+      return;
+    }
 
     try {
       await updateDoc(doc(db, "users", user.uid), {
         savingsGoal: val,
-        savingsGoalName,
+        savingsGoalName: savingsGoalName.trim() || "Emergency Fund",
       });
 
       toast({
         title: "Goal updated! 🎯",
-        description: `${savingsGoalName}: ${formatCurrency(val)}`,
+        description: `${savingsGoalName.trim() || "Emergency Fund"}: ${formatCurrency(val)}`,
       });
     } catch (err) {
       console.error(err);
+      toast({ title: "Error", description: "Failed to update savings goal", variant: "destructive" });
     }
   };
 
@@ -84,8 +123,8 @@ export default function Profile() {
     if (!user) return;
     setEditForm({
       fullName: user?.fullName || "",
-      gender: user?.gender || "",
-      profession: user?.profession || "",
+      gender: user?.gender && user.gender !== "Not specified" ? user.gender : "Male",
+      profession: user?.profession && user.profession !== "Not specified" ? user.profession : PROFESSIONS[0],
     });
     setEditing(true);
   };
@@ -110,11 +149,11 @@ export default function Profile() {
       toast({ title: "Profile updated! ✨" });
     } catch (err) {
       console.error(err);
+      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
     }
   };
 
   if (!user) return null;
-  const streak = getStreak(user.uid);
 
   return (
     <div className="pb-24 px-4 pt-6 max-w-md mx-auto space-y-4">
@@ -129,11 +168,11 @@ export default function Profile() {
           {user?.fullName?.charAt(0).toUpperCase() || "U"}
         </div>
         <div className="flex-1">
-          <p className="font-semibold text-lg">{user?.fullName || ""}</p>
-          <p className="text-sm text-muted-foreground">{user.profession}</p>
+          <p className="font-semibold text-lg">{user?.fullName || "User"}</p>
+          <p className="text-sm text-muted-foreground">{user?.profession || "Profession not set"}</p>
         </div>
         {!editing && (
-          <button onClick={startEditing} className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+          <button onClick={startEditing} className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="Edit Profile">
             <Pencil size={16} />
           </button>
         )}
@@ -174,22 +213,24 @@ export default function Profile() {
             <Target size={20} />
           </div>
           <p className="text-2xl font-bold">{formatCurrency(user.savingsGoal || 0)}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Savings Goal</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+            {user.savingsGoalName || "Savings Goal"}
+          </p>
         </div>
       </div>
 
       {/* Details */}
       <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-2">
         <div className="flex items-center gap-3"><Mail size={16} className="text-secondary" /><span className="text-sm">{user.email}</span></div>
-        <div className="flex items-center gap-3"><User size={16} className="text-accent" /><span className="text-sm">{user.gender}</span></div>
-        <div className="flex items-center gap-3"><Briefcase size={16} className="text-cat-bills" /><span className="text-sm">{user.profession}</span></div>
+        <div className="flex items-center gap-3"><User size={16} className="text-accent" /><span className="text-sm">{user.gender || "Not specified"}</span></div>
+        <div className="flex items-center gap-3"><Briefcase size={16} className="text-cat-bills" /><span className="text-sm">{user.profession || "Not specified"}</span></div>
       </div>
 
       {/* Spending Limit */}
       <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-3">
         <div className="flex items-center gap-2"><Wallet size={16} className="text-primary" /><span className="text-sm font-medium">Monthly Spending Limit</span></div>
         <div className="flex gap-2">
-          <Input type="number" value={limit} onChange={e => setLimit(e.target.value)} className="h-10 rounded-xl" min="1" />
+          <Input type="number" value={limit} onChange={e => setLimit(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="e.g. 10000" />
           <Button onClick={handleSaveLimit} className="rounded-xl gradient-primary text-primary-foreground px-4">Save</Button>
         </div>
       </div>
@@ -199,7 +240,7 @@ export default function Profile() {
         <div className="flex items-center gap-2"><Target size={16} className="text-accent" /><span className="text-sm font-medium">Savings Goal</span></div>
         <Input placeholder="Goal name (e.g. Vacation)" value={savingsGoalName} onChange={e => setSavingsGoalName(e.target.value)} className="h-10 rounded-xl" />
         <div className="flex gap-2">
-          <Input type="number" value={savingsGoal} onChange={e => setSavingsGoal(e.target.value)} className="h-10 rounded-xl" min="1" placeholder="Target amount" />
+          <Input type="number" value={savingsGoal} onChange={e => setSavingsGoal(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="Target amount" />
           <Button onClick={handleSaveSavingsGoal} className="rounded-xl gradient-accent text-accent-foreground px-4">Save</Button>
         </div>
       </div>

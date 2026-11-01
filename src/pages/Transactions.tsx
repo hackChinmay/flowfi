@@ -33,18 +33,47 @@ export default function Transactions() {
 
     const q = query(
       collection(db, "transactions"),
-      where("userId", "==", user.uid),
-      orderBy("date", "desc")
+      where("userId", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Transaction[];
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => {
+          const d = doc.data();
+          const rawDate = d.date || d.createdAt;
+          let dateStr = new Date().toISOString();
 
-      setTxns(data);
-    });
+          if (rawDate?.seconds) {
+            dateStr = new Date(rawDate.seconds * 1000).toISOString();
+          } else if (typeof rawDate === "string") {
+            dateStr = rawDate;
+          }
+
+          return {
+            id: doc.id,
+            userId: d.userId,
+            type: d.type,
+            amount: Number(d.amount || 0),
+            category: d.category || "Other",
+            description: d.description || "",
+            date: dateStr,
+          };
+        }) as Transaction[];
+
+        // Sort descending by date (newest first)
+        data.sort((a, b) => {
+          const tA = new Date(a.date).getTime() || 0;
+          const tB = new Date(b.date).getTime() || 0;
+          return tB - tA;
+        });
+
+        setTxns(data);
+      },
+      (error) => {
+        console.error("Error fetching transactions:", error);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);
@@ -69,11 +98,14 @@ export default function Transactions() {
     const grouped: Record<string, Transaction[]> = {};
 
     all.forEach((t) => {
-      const key = new Date(t.date).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+      const d = new Date(t.date);
+      const key = isNaN(d.getTime())
+        ? "Other"
+        : d.toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
 
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(t);
@@ -88,7 +120,7 @@ export default function Transactions() {
       await deleteDoc(doc(db, "transactions", id));
       toast({ title: "Deleted", description: "Transaction removed" });
     } catch (err) {
-      toast({ title: "Error", description: "Failed to delete transaction" });
+      toast({ title: "Error", description: "Failed to delete transaction", variant: "destructive" });
     }
   };
 
@@ -104,13 +136,17 @@ export default function Transactions() {
 
     const header = ["Date", "Type", "Category", "Description", "Amount (₹)"];
 
-    const rows = filteredTxns.map((t) => [
-      new Date(t.date).toLocaleDateString("en-IN"),
-      t.type,
-      t.category,
-      t.description || "",
-      t.amount,
-    ]);
+    const rows = filteredTxns.map((t) => {
+      const d = new Date(t.date);
+      const dateText = isNaN(d.getTime()) ? t.date : d.toLocaleDateString("en-IN");
+      return [
+        dateText,
+        t.type,
+        t.category,
+        t.description || "",
+        t.amount,
+      ];
+    });
 
     const csv = [header, ...rows]
       .map((r) => r.map(String).join(","))
@@ -144,6 +180,8 @@ export default function Transactions() {
     Freelance: "💻",
     Investment: "📈",
     Gift: "🎁",
+    Business: "🏢",
+    Other: "📦",
   };
 
   const totalFiltered = filteredTxns.reduce(
@@ -238,7 +276,12 @@ export default function Transactions() {
                       <p className="text-sm font-medium">{txn.category}</p>
                       <p className="text-xs text-muted-foreground">
                         {txn.description ||
-                          new Date(txn.date).toLocaleTimeString("en-IN")}
+                          (!isNaN(new Date(txn.date).getTime())
+                            ? new Date(txn.date).toLocaleTimeString("en-IN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "")}
                       </p>
                     </div>
                   </div>

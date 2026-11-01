@@ -32,7 +32,9 @@ export default function Signup() {
       await signUp({
         fullName: form.fullName,
         email: form.email,
-        password: form.password
+        password: form.password,
+        gender: form.gender,
+        profession: form.profession,
       });
       navigate("/dashboard");
     } catch (err: any) {

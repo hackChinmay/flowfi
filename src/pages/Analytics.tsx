@@ -86,9 +86,14 @@ export default function Analytics() {
       const amount = Number(t.amount || 0);
 
       // 🔥 DATE FIX (supports both Firestore & fallback)
-      const d = t.createdAt?.seconds
-        ? new Date(t.createdAt.seconds * 1000)
-        : new Date();
+      const rawDate = t.date || t.createdAt;
+      let d = new Date();
+      if (rawDate?.seconds) {
+        d = new Date(rawDate.seconds * 1000);
+      } else if (rawDate) {
+        const parsed = new Date(rawDate);
+        if (!isNaN(parsed.getTime())) d = parsed;
+      }
 
       const key = `${d.getFullYear()}-${d.getMonth()}`;
 

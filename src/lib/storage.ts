@@ -129,7 +129,7 @@ export function formatCurrency(amount: number): string {
 }
 
 // Streak tracking
-function updateStreak(userId: string) {
+export function updateStreak(userId: string) {
   const key = `${STREAK_KEY}_${userId}`;
   const data = JSON.parse(localStorage.getItem(key) || '{"count":0,"lastDate":""}');
   const today = new Date().toDateString();
@@ -151,6 +151,63 @@ export function getStreak(userId: string): number {
   const yesterday = new Date(Date.now() - 86400000).toDateString();
   if (data.lastDate === today || data.lastDate === yesterday) return data.count;
   return 0;
+}
+
+export function calculateStreakFromTransactions(txns: { date?: any; createdAt?: any }[]): number {
+  if (!txns || txns.length === 0) return 0;
+
+  const dateSet = new Set<string>();
+
+  for (const t of txns) {
+    const raw = t.date || t.createdAt;
+    let d: Date | null = null;
+    if (raw?.seconds) {
+      d = new Date(raw.seconds * 1000);
+    } else if (raw) {
+      d = new Date(raw);
+    }
+    if (d && !isNaN(d.getTime())) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      dateSet.add(`${yyyy}-${mm}-${dd}`);
+    }
+  }
+
+  const formatDay = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const today = new Date();
+  const todayStr = formatDay(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = formatDay(yesterday);
+
+  let checkDate = new Date(today);
+  if (!dateSet.has(todayStr)) {
+    if (dateSet.has(yesterdayStr)) {
+      checkDate = yesterday;
+    } else {
+      return 0;
+    }
+  }
+
+  let streak = 0;
+  while (true) {
+    const s = formatDay(checkDate);
+    if (dateSet.has(s)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {

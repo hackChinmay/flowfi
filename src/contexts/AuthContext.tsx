@@ -12,11 +12,17 @@ import {
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 
-interface AppUser {
+export interface AppUser {
   uid: string;
   email: string | null;
   fullName?: string;
   photoURL?: string | null;
+  gender?: string;
+  profession?: string;
+  spendingLimit?: number;
+  savingsGoal?: number;
+  savingsGoalName?: string;
+  streak?: number;
 }
 
 interface AuthContextType {
@@ -27,6 +33,8 @@ interface AuthContextType {
     fullName: string;
     email: string;
     password: string;
+    gender?: string;
+    profession?: string;
   }) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -79,6 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: firebaseUser.email,
             fullName: data.fullName || firebaseUser.displayName || "",
             photoURL: firebaseUser.photoURL || null,
+            gender: data.gender || "",
+            profession: data.profession || "",
+            spendingLimit: typeof data.spendingLimit === "number" ? data.spendingLimit : 0,
+            savingsGoal: typeof data.savingsGoal === "number" ? data.savingsGoal : 0,
+            savingsGoalName: data.savingsGoalName || "Emergency Fund",
+            streak: data.streak || 0,
           });
 
           setLoading(false);
@@ -105,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fullName: string;
     email: string;
     password: string;
+    gender?: string;
+    profession?: string;
   }) => {
     const res = await createUserWithEmailAndPassword(
       auth,
@@ -117,6 +133,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(db, "users", firebaseUser.uid), {
       fullName: data.fullName,
       email: data.email,
+      gender: data.gender || "Other",
+      profession: data.profession || "Other",
+      spendingLimit: 10000,
+      savingsGoal: 5000,
+      savingsGoalName: "Emergency Fund",
     });
   };
 
