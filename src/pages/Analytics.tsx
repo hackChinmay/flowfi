@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { formatCurrency } from "@/lib/storage";
+import {
+  formatCurrency,
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  calculateSavingsRate,
+  calculateMonthlySummary,
+  calculateCategoryBreakdown
+} from "@/lib/financial";
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -56,7 +63,7 @@ export default function Analytics() {
     return () => unsubscribe();
   }, [user]);
 
-  // 🧠 CALCULATIONS
+  // 🧠 CALCULATIONS WITH FINANCIAL INTEGRITY
   const {
     monthlyData,
     categoryData,
@@ -64,7 +71,6 @@ export default function Analytics() {
     totalExpenses,
     savingsRate
   } = useMemo(() => {
-
     if (!txns.length) {
       return {
         monthlyData: [],
@@ -75,74 +81,19 @@ export default function Analytics() {
       };
     }
 
-    const now = new Date();
-
-    // 📊 Monthly
-    const monthlyMap: Record<string, { income: number; expense: number }> = {};
-
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      monthlyMap[key] = { income: 0, expense: 0 };
-    }
-
-    let totalInc = 0;
-    let totalExp = 0;
-    const catMap: Record<string, number> = {};
-
-    txns.forEach((t) => {
-      const amount = Number(t.amount || 0);
-
-      // 🔥 DATE FIX (supports both Firestore & fallback)
-      const rawDate = t.date || t.createdAt;
-      let d = new Date();
-      if (rawDate?.seconds) {
-        d = new Date(rawDate.seconds * 1000);
-      } else if (rawDate) {
-        const parsed = new Date(rawDate);
-        if (!isNaN(parsed.getTime())) d = parsed;
-      }
-
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-
-      if (t.type === "income") {
-        totalInc += amount;
-        if (monthlyMap[key]) monthlyMap[key].income += amount;
-      } else {
-        totalExp += amount;
-        if (monthlyMap[key]) monthlyMap[key].expense += amount;
-
-        catMap[t.category] = (catMap[t.category] || 0) + amount;
-      }
-    });
-
-    const monthlyData = Object.entries(monthlyMap).map(([key, val]) => {
-      const [, month] = key.split("-").map(Number);
-      return {
-        name: MONTHS[month],
-        income: val.income,
-        expense: val.expense
-      };
-    });
-
-    const categoryData = Object.entries(catMap).map(([name, value]) => ({
-      name,
-      value,
-      percent: totalExp ? ((value / totalExp) * 100).toFixed(1) : "0"
-    }));
-
-    const savingsRate = totalInc
-      ? ((totalInc - totalExp) / totalInc) * 100
-      : 0;
+    const totalIncome = calculateTotalIncome(txns);
+    const totalExpenses = calculateTotalExpenses(txns);
+    const savingsRate = calculateSavingsRate(totalIncome, totalExpenses);
+    const monthlyData = calculateMonthlySummary(txns, 6);
+    const categoryData = calculateCategoryBreakdown(txns, totalExpenses);
 
     return {
       monthlyData,
       categoryData,
-      totalIncome: totalInc,
-      totalExpenses: totalExp,
+      totalIncome,
+      totalExpenses,
       savingsRate
     };
-
   }, [txns]);
 
   if (!user) return null;

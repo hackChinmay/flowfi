@@ -1,18 +1,52 @@
-import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { app, auth } from "./firebase";
+import { roundCurrency } from "./financial";
 
 const db = getFirestore(app);
 
-// Add transaction with enforced authenticated user ownership
+// Add transaction with enforced authenticated user ownership and monetary rounding
 export const addTransaction = async (data: any) => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to add transactions");
   }
+  const safeAmount = roundCurrency(data.amount);
+  if (safeAmount <= 0) {
+    throw new Error("Invalid amount: Transaction amount must be greater than zero");
+  }
   await addDoc(collection(db, "transactions"), {
     ...data,
+    amount: safeAmount,
     userId: currentUid,
   });
+};
+
+// Update transaction with authenticated owner enforcement and immutable field protection
+export const updateTransaction = async (id: string, updates: Record<string, any>) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) {
+    throw new Error("Unauthorized: User must be signed in to update transactions");
+  }
+  const safeUpdates = { ...updates };
+  // Guard immutable fields
+  delete safeUpdates.userId;
+  delete safeUpdates.createdAt;
+  if (safeUpdates.amount !== undefined) {
+    safeUpdates.amount = roundCurrency(safeUpdates.amount);
+    if (safeUpdates.amount <= 0) {
+      throw new Error("Invalid amount: Transaction amount must be greater than zero");
+    }
+  }
+  await updateDoc(doc(db, "transactions", id), safeUpdates);
+};
+
+// Delete transaction
+export const deleteTransaction = async (id: string) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) {
+    throw new Error("Unauthorized: User must be signed in to delete transactions");
+  }
+  await deleteDoc(doc(db, "transactions", id));
 };
 
 // Get transactions for a user scoped to authenticated user

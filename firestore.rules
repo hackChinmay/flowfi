@@ -1,0 +1,249 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Must match Firebase Auth UID)
+    // Fields:
+    //   - fullName: string (required, 0-100 chars) - User's display name
+    //   - email: string (required, valid email format, <= 100 chars) - User's email
+    //   - photoURL: string or null (optional, valid URL if string, <= 500 chars) - Avatar URL
+    //   - gender: string (optional, 'Male' | 'Female' | 'Other' | 'Not specified')
+    //   - profession: string (optional, 'Student' | 'Developer' | 'Designer' | 'Entrepreneur' | 'Freelancer' | 'Manager' | 'Other' | 'Not specified')
+    //   - spendingLimit: number (optional, >= 0, <= 1000000000) - Monthly spending limit
+    //   - savingsGoal: number (optional, >= 0, <= 1000000000) - Financial savings goal
+    //   - savingsGoalName: string (optional, 0-100 chars) - Goal description/title
+    //   - streak: number (optional, >= 0, <= 100000) - Consecutive login/activity streak
+    //
+    // Collection: transactions
+    // Document ID: {transactionId} (Auto-generated Firestore ID)
+    // Fields:
+    //   - userId: string (required, immutable, must equal request.auth.uid)
+    //   - type: string (required, 'income' | 'expense') - Transaction type
+    //   - amount: number (required, > 0, <= 1000000000) - Transaction amount
+    //   - category: string (required, valid category name) - Category of transaction
+    //   - description: string (optional, 0-500 chars) - Transaction notes
+    //   - createdAt: timestamp (optional, immutable) - Server creation timestamp
+    //   - date: string (ISO 8601) or timestamp (optional) - Transaction date
+    //
+    // Collection: budgets (Dedicated top-level collection)
+    // Document ID: {budgetId}
+    // Fields:
+    //   - userId: string (required, immutable, must equal request.auth.uid)
+    //   - amount: number (required, > 0, <= 1000000000) - Allocated budget
+    //   - category: string (optional, <= 50 chars) - Budget category
+    //   - month: string (optional, <= 20 chars) - Associated month
+    //   - name: string (optional, <= 100 chars) - Budget name
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: goals (Dedicated top-level collection)
+    // Document ID: {goalId}
+    // Fields:
+    //   - userId: string (required, immutable, must equal request.auth.uid)
+    //   - name: string (required, 1-100 chars) - Goal title
+    //   - targetAmount: number (required, > 0, <= 1000000000) - Target goal amount
+    //   - currentAmount: number (optional, >= 0, <= 1000000000) - Current saved amount
+    //   - deadline: timestamp or string (optional, <= 40 chars) - Target date
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns the resource based on route userId parameter
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validate that required fields exist in request resource data
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate that document contains only allowed fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate that specified immutable fields have not been modified during update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() <= 100 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Validate URL format (must start with http:// or https://)
+    function isValidUrl(url) {
+      return url is string &&
+        url.size() <= 500 &&
+        (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // Validate ISO 8601 date string format (e.g. YYYY-MM-DDTHH:MM:SS.sssZ)
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.size() <= 40 &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    // Domain validator for users collection
+    function isValidUser(data) {
+      return hasOnlyAllowedFields([
+        'fullName', 'email', 'photoURL', 'gender', 'profession',
+        'spendingLimit', 'savingsGoal', 'savingsGoalName', 'streak'
+      ]) &&
+      hasRequiredFields(['fullName', 'email']) &&
+      data.fullName is string &&
+      data.fullName.size() <= 100 &&
+      (data.email == null || isValidEmail(data.email)) &&
+      (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500 && (data.photoURL == "" || isValidUrl(data.photoURL)))) &&
+      (!('gender' in data) || (data.gender is string && data.gender in ['Male', 'Female', 'Other', 'Not specified'])) &&
+      (!('profession' in data) || (data.profession is string && data.profession in ['Student', 'Developer', 'Designer', 'Entrepreneur', 'Freelancer', 'Manager', 'Other', 'Not specified'])) &&
+      (!('spendingLimit' in data) || (data.spendingLimit is number && data.spendingLimit >= 0 && data.spendingLimit <= 1000000000)) &&
+      (!('savingsGoal' in data) || (data.savingsGoal is number && data.savingsGoal >= 0 && data.savingsGoal <= 1000000000)) &&
+      (!('savingsGoalName' in data) || (data.savingsGoalName is string && data.savingsGoalName.size() <= 100)) &&
+      (!('streak' in data) || (data.streak is number && data.streak >= 0 && data.streak <= 100000));
+    }
+
+    // Domain validator for transactions collection
+    function isValidTransaction(data) {
+      return hasOnlyAllowedFields([
+        'userId', 'type', 'amount', 'category', 'description', 'createdAt', 'date'
+      ]) &&
+      hasRequiredFields(['userId', 'type', 'amount', 'category']) &&
+      data.userId is string &&
+      data.userId == request.auth.uid &&
+      data.type in ['income', 'expense'] &&
+      data.amount is number &&
+      data.amount > 0 &&
+      data.amount <= 1000000000 &&
+      data.category in [
+        'Food', 'Transport', 'Shopping', 'Bills', 'Health',
+        'Entertainment', 'Education', 'Salary', 'Freelance',
+        'Business', 'Investment', 'Gift', 'Other'
+      ] &&
+      (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      (!('date' in data) || data.date is timestamp || isValidDateString(data.date));
+    }
+
+    // Domain validator for budgets collection
+    function isValidBudget(data) {
+      return hasOnlyAllowedFields([
+        'userId', 'category', 'amount', 'month', 'name', 'createdAt', 'updatedAt'
+      ]) &&
+      hasRequiredFields(['userId', 'amount']) &&
+      data.userId is string &&
+      data.userId == request.auth.uid &&
+      data.amount is number &&
+      data.amount > 0 &&
+      data.amount <= 1000000000 &&
+      (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+      (!('month' in data) || (data.month is string && data.month.size() <= 20)) &&
+      (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // Domain validator for goals collection
+    function isValidGoal(data) {
+      return hasOnlyAllowedFields([
+        'userId', 'name', 'targetAmount', 'currentAmount', 'deadline', 'createdAt', 'updatedAt'
+      ]) &&
+      hasRequiredFields(['userId', 'name', 'targetAmount']) &&
+      data.userId is string &&
+      data.userId == request.auth.uid &&
+      data.name is string &&
+      data.name.size() > 0 &&
+      data.name.size() <= 100 &&
+      data.targetAmount is number &&
+      data.targetAmount > 0 &&
+      data.targetAmount <= 1000000000 &&
+      (!('currentAmount' in data) || (data.currentAmount is number && data.currentAmount >= 0 && data.currentAmount <= 1000000000)) &&
+      (!('deadline' in data) || data.deadline is timestamp || (data.deadline is string && data.deadline.size() <= 40)) &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Users collection: strictly owner-only read & write (protects PII & financial settings)
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // Recursive match for any user subcollections (e.g. users/{userId}/budgets/{id})
+      match /{allPaths=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // 2. Transactions collection: owner-only read/write with strict financial validation
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data);
+      allow update: if isAuthenticated() &&
+                      resource.data.userId == request.auth.uid &&
+                      isValidTransaction(request.resource.data) &&
+                      areImmutableFieldsUnchanged(['userId', 'createdAt']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // 3. Budgets collection (dedicated top-level)
+    match /budgets/{budgetId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidBudget(request.resource.data);
+      allow update: if isAuthenticated() &&
+                      resource.data.userId == request.auth.uid &&
+                      isValidBudget(request.resource.data) &&
+                      areImmutableFieldsUnchanged(['userId', 'createdAt']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // 4. Goals collection (dedicated top-level)
+    match /goals/{goalId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidGoal(request.resource.data);
+      allow update: if isAuthenticated() &&
+                      resource.data.userId == request.auth.uid &&
+                      isValidGoal(request.resource.data) &&
+                      areImmutableFieldsUnchanged(['userId', 'createdAt']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Default Deny Rule
+    // ===============================================================
+    // Reject all reads and writes to unspecified collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

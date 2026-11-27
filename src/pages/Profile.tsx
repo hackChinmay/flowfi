@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStreak, calculateStreakFromTransactions, formatCurrency } from "@/lib/storage";
+import { roundCurrency } from "@/lib/financial";
 import { useTheme } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -82,9 +83,9 @@ export default function Profile() {
   const handleSaveLimit = async () => {
     if (!user) return;
 
-    const val = Number(limit);
-    if (isNaN(val) || val < 0) {
-      toast({ title: "Invalid Limit", description: "Please enter a valid amount", variant: "destructive" });
+    const val = roundCurrency(limit);
+    if (isNaN(val) || val < 0 || val > 1000000000) {
+      toast({ title: "Invalid Limit", description: "Please enter a valid amount (up to ₹100 Crore)", variant: "destructive" });
       return;
     }
 
@@ -106,9 +107,9 @@ export default function Profile() {
   const handleSaveSavingsGoal = async () => {
     if (!user) return;
 
-    const val = Number(savingsGoal);
-    if (isNaN(val) || val < 0) {
-      toast({ title: "Invalid Goal", description: "Please enter a valid amount", variant: "destructive" });
+    const val = roundCurrency(savingsGoal);
+    if (isNaN(val) || val < 0 || val > 1000000000) {
+      toast({ title: "Invalid Goal", description: "Please enter a valid amount (up to ₹100 Crore)", variant: "destructive" });
       return;
     }
 

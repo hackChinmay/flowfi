@@ -9,6 +9,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { updateStreak } from "@/lib/storage";
+import { roundCurrency } from "@/lib/financial";
 
 export default function AddExpense() {
   const { user } = useAuth();
@@ -24,9 +25,12 @@ export default function AddExpense() {
   const categories =
     type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
-  // 🔥 SAVE TO FIREBASE
+  // 🔥 SAVE TO FIREBASE WITH FINANCIAL INTEGRITY & DUPLICATE PROTECTION
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate concurrent submissions
+    if (loading) return;
 
     if (!user) {
       toast({
@@ -37,10 +41,20 @@ export default function AddExpense() {
       return;
     }
 
-    if (!amount || Number(amount) <= 0) {
+    const parsedAmount = roundCurrency(amount);
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
       toast({
         title: "Invalid Amount",
-        description: "Enter a valid amount",
+        description: "Please enter a valid positive amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (parsedAmount > 1000000000) {
+      toast({
+        title: "Amount Too High",
+        description: "Amount cannot exceed ₹100 Crore",
         variant: "destructive",
       });
       return;
@@ -52,9 +66,9 @@ export default function AddExpense() {
       await addDoc(collection(db, "transactions"), {
         userId: user.uid,
         type,
-        amount: Number(amount),
+        amount: parsedAmount,
         category,
-        description: description || "",
+        description: (description || "").trim(),
         createdAt: serverTimestamp(),
         date: new Date().toISOString(),
       });
@@ -129,10 +143,12 @@ export default function AddExpense() {
             <span className="text-3xl font-bold text-muted-foreground">₹</span>
             <input
               type="number"
+              step="0.01"
+              min="0.01"
+              max="1000000000"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
-              min="1"
               className="text-5xl font-bold bg-transparent border-none outline-none text-center w-44 text-foreground"
             />
           </div>

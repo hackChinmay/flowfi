@@ -1,8 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
 import type { Transaction } from "@/lib/storage";
 import { formatCurrency, CATEGORY_CSS } from "@/lib/storage";
+import {
+  calculateBalance,
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  roundCurrency
+} from "@/lib/financial";
 import { useMemo, useState, useEffect } from "react";
-import { Search, Trash2, Calendar, Download } from "lucide-react";
+import { Search, Trash2, Calendar, Download, Pencil, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,8 +20,8 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
   deleteDoc,
+  updateDoc,
   doc,
 } from "firebase/firestore";
 
@@ -26,6 +32,14 @@ export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [search, setSearch] = useState("");
   const [txns, setTxns] = useState<Transaction[]>([]);
+
+  // Editing state
+  const [editingTxn, setEditingTxn] = useState<Transaction | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("Food");
+  const [editType, setEditType] = useState<"income" | "expense">("expense");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   // ✅ REALTIME FIRESTORE LISTENER
   useEffect(() => {
@@ -127,6 +141,45 @@ export default function Transactions() {
     }
   };
 
+  // ✅ EDIT TRANSACTION IN FIRESTORE
+  const handleStartEdit = (txn: Transaction) => {
+    setEditingTxn(txn);
+    setEditAmount(String(txn.amount || ""));
+    setEditCategory(txn.category || "Food");
+    setEditType((txn.type as "income" | "expense") || "expense");
+    setEditDescription(txn.description || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTxn) return;
+    const safeAmount = roundCurrency(editAmount);
+    if (isNaN(safeAmount) || safeAmount <= 0) {
+      toast({ title: "Invalid Amount", description: "Please enter a valid positive amount", variant: "destructive" });
+      return;
+    }
+    if (safeAmount > 1000000000) {
+      toast({ title: "Amount Too High", description: "Amount cannot exceed ₹100 Crore", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setEditLoading(true);
+      await updateDoc(doc(db, "transactions", editingTxn.id), {
+        amount: safeAmount,
+        type: editType,
+        category: editCategory,
+        description: editDescription.trim(),
+      });
+      setEditingTxn(null);
+      toast({ title: "Updated 🎉", description: "Transaction updated successfully" });
+    } catch (err) {
+      console.error("Failed to update transaction:", err);
+      toast({ title: "Error", description: "Failed to update transaction", variant: "destructive" });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   // ✅ EXPORT CSV
   const handleExportCSV = () => {
     if (filteredTxns.length === 0) {
@@ -187,9 +240,9 @@ export default function Transactions() {
     Other: "📦",
   };
 
-  const totalFiltered = filteredTxns.reduce(
-    (s, t) => s + (t.type === "income" ? t.amount : -t.amount),
-    0
+  const totalFiltered = calculateBalance(
+    calculateTotalIncome(filteredTxns),
+    calculateTotalExpenses(filteredTxns)
   );
 
   return (
@@ -302,8 +355,17 @@ export default function Transactions() {
                     </p>
 
                     <button
+                      onClick={() => handleStartEdit(txn)}
+                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center transition-opacity"
+                      title="Edit transaction"
+                    >
+                      <Pencil size={13} />
+                    </button>
+
+                    <button
                       onClick={() => handleDelete(txn.id)}
-                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center"
+                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center transition-opacity"
+                      title="Delete transaction"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -312,6 +374,101 @@ export default function Transactions() {
               ))}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTxn && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card rounded-2xl p-5 max-w-sm w-full space-y-4 border border-border shadow-2xl animate-fade-in-up">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold">Edit Transaction</h3>
+              <button
+                onClick={() => setEditingTxn(null)}
+                className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Type selector */}
+            <div className="flex bg-muted rounded-xl p-1">
+              {(["expense", "income"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setEditType(t)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    editType === t
+                      ? t === "expense"
+                        ? "bg-destructive text-destructive-foreground"
+                        : "gradient-primary text-primary-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Amount */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Amount (₹)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                className="h-10 rounded-xl font-bold"
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Category</label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground"
+              >
+                {Object.keys(categoryEmojis).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {categoryEmojis[cat]} {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Description (optional)</label>
+              <Input
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Notes"
+                className="h-10 rounded-xl"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditingTxn(null)}
+                className="flex-1 rounded-xl h-10"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={editLoading}
+                onClick={handleSaveEdit}
+                className="flex-1 rounded-xl h-10 gradient-primary text-primary-foreground"
+              >
+                {editLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

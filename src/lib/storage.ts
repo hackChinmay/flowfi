@@ -124,9 +124,20 @@ export function getUserTransactions(userId: string): Transaction[] {
   return getTransactions().filter(t => t.userId === userId);
 }
 
-export function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString("en-IN")}`;
-}
+export {
+  formatCurrency,
+  toPaise,
+  toRupees,
+  roundCurrency,
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  calculateBalance,
+  calculateSavings,
+  calculateRemainingBudget,
+  calculateSavingsProgress,
+  calculateSavingsRate,
+  calculateCategoryBreakdown
+} from "./financial";
 
 // Streak tracking
 export function updateStreak(userId: string) {

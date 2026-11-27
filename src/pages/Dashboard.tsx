@@ -1,5 +1,17 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency, CATEGORY_CSS, CATEGORY_BG, getStreak, calculateStreakFromTransactions } from "@/lib/storage";
+import { CATEGORY_CSS, CATEGORY_BG, getStreak, calculateStreakFromTransactions } from "@/lib/storage";
+import {
+  formatCurrency,
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  calculateBalance,
+  calculateSavingsProgress,
+  calculateCategoryBreakdown,
+  calculateCurrentMonthSpending,
+  calculateBudgetUsagePercent,
+  parseTransactionDate,
+  calculateExpenseRatio
+} from "@/lib/financial";
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, AlertTriangle, Smile, Meh, Frown, Flame, Target, ArrowRight, Lightbulb, PiggyBank, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -52,19 +64,21 @@ export default function Dashboard() {
   }, [user]);
 
 
-  const { income, expenses, balance, recentTxns, moodData, weeklyData, categoryBreakdown, streak, savingsProgress, savingTips } = useMemo(() => {
-    if (!user) return { income: 0, expenses: 0, balance: 0, recentTxns: [], moodData: { emoji: "neutral", label: "Neutral" }, weeklyData: { spent: 0, saved: 0 }, categoryBreakdown: [], streak: 0, savingsProgress: 0, savingTips: [] };
-    const inc = txns.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount || 0), 0);
+  const { income, expenses, balance, currentMonthExpenses, spendingLimit, recentTxns, moodData, weeklyData, categoryBreakdown, streak, savingsProgress, savingTips } = useMemo(() => {
+    if (!user) return { income: 0, expenses: 0, balance: 0, currentMonthExpenses: 0, spendingLimit: 0, recentTxns: [], moodData: { emoji: "neutral", label: "Neutral" }, weeklyData: { spent: 0, saved: 0 }, categoryBreakdown: [], streak: 0, savingsProgress: 0, savingTips: [] };
 
-    const exp = txns.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount || 0), 0);
-    const bal = inc - exp;
+    // Standardized integer-paise calculations
+    const inc = calculateTotalIncome(txns);
+    const exp = calculateTotalExpenses(txns);
+    const bal = calculateBalance(inc, exp);
+    const ratio = calculateExpenseRatio(inc, exp);
 
-    const ratio = inc > 0 ? exp / inc : exp > 0 ? 1 : 0;
+    // Current month actual spending evaluated against monthly spending limit
+    const currentMonthExp = calculateCurrentMonthSpending(txns);
+    const limitAmount = Number(user.spendingLimit || 0);
+    const limitExceeded = limitAmount > 0 && currentMonthExp >= limitAmount;
 
-    // ✅ NEW: Spending limit check
-    const limitExceeded =Number(user.spendingLimit || 0) > 0 && exp >= Number(user.spendingLimit || 0);
-
-    // ✅ FIXED MOOD LOGIC
+    // Fixed mood logic
     let moodData;
 
     if (limitExceeded && ratio < 0.5) {
@@ -98,38 +112,20 @@ export default function Dashboard() {
       };
     }
 
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const weekTxns = txns.filter(t => t.date >= weekAgo);
-    const weekSpent = weekTxns.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const weekEarned = weekTxns.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+    const weekAgoMs = Date.now() - 7 * 86400000;
+    const weekTxns = txns.filter(t => parseTransactionDate(t).getTime() >= weekAgoMs);
+    const weekSpent = calculateTotalExpenses(weekTxns);
+    const weekEarned = calculateTotalIncome(weekTxns);
 
     // Category breakdown
-    const catMap: Record<string, number> = {};
-    txns.filter(t => t.type === "expense").forEach(t => {
-      catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount || 0);
-    });
-    const categoryBreakdown = Object.entries(catMap)
-      .map(([name, amount]) => ({ name, amount, percent: exp > 0 ? (amount / exp) * 100 : 0 }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
+    const categoryBreakdown = calculateCategoryBreakdown(txns, exp).slice(0, 5);
 
     const streak = Math.max(calculateStreakFromTransactions(txns), getStreak(user.uid));
-    const savingsProgress = user.savingsGoal && user.savingsGoal > 0 ? Math.min((Math.max(0, bal) / user.savingsGoal) * 100, 100) : 0;
+    const savingsGoal = Number(user.savingsGoal || 0);
+    const savingsProgress = calculateSavingsProgress(Math.max(0, bal), savingsGoal);
 
     // Generate personalized money-saving tips
-    const topCat = Object.entries(
-  txns
-    .filter(t => t.type === "expense")
-    .reduce((m: Record<string, number>, t) => {
-      const category = t.category || "Other";
-      const amount = Number(t.amount || 0);
-
-      m[category] = (m[category] || 0) + amount;
-      return m;
-    }, {})
-)
-  .sort((a, b) => Number(b[1]) - Number(a[1]))
-  [0]?.[0];
+    const topCat = categoryBreakdown[0]?.name;
 
     const savingTips: { icon: string; title: string; desc: string; color: string }[] = [];
 
@@ -168,19 +164,22 @@ export default function Dashboard() {
     savingTips.push(universalTips[new Date().getDay() % universalTips.length]);
 
     return {
-      income: inc, expenses: exp, balance: bal,
+      income: inc,
+      expenses: exp,
+      balance: bal,
+      currentMonthExpenses: currentMonthExp,
+      spendingLimit: limitAmount,
       recentTxns: [...txns].sort((a, b) => {
-        const getTime = (d: any) => {
-        if (!d) return 0;
-        if (d.seconds) return d.seconds * 1000; // Firestore Timestamp
-        return new Date(d).getTime(); // string/date fallback
-      };
-
-    return getTime(b.date) - getTime(a.date);
-  })
-  .slice(0, 5),
-      moodData, weeklyData: { spent: weekSpent, saved: weekEarned - weekSpent },
-      categoryBreakdown, streak, savingsProgress, savingTips,
+        const timeA = parseTransactionDate(a).getTime();
+        const timeB = parseTransactionDate(b).getTime();
+        return timeB - timeA;
+      }).slice(0, 5),
+      moodData,
+      weeklyData: { spent: weekSpent, saved: calculateBalance(weekEarned, weekSpent) },
+      categoryBreakdown,
+      streak,
+      savingsProgress,
+      savingTips,
     };
   }, [user, txns]);
 
@@ -192,7 +191,7 @@ export default function Dashboard() {
     );
   }
 
-  const limitPercent =Number(user.spendingLimit || 0) > 0 ? Math.min((expenses / Number(user.spendingLimit || 0)) * 100, 100) : 0;
+  const limitPercent = spendingLimit > 0 ? Math.min(calculateBudgetUsagePercent(spendingLimit, currentMonthExpenses), 100) : 0;
   const nearLimit = limitPercent >= 80;
   const MoodIcon = moodData.emoji === "happy" ? Smile : moodData.emoji === "neutral" ? Meh : Frown;
 
