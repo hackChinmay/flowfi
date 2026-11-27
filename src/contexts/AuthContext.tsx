@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -133,13 +133,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 🔐 Email login
-  const signIn = async (email: string, password: string) => {
+  // 🔐 Email login (stable reference)
+  const signIn = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
-  };
+  }, []);
 
-  // 🔐 Email signup
-  const signUp = async (data: {
+  // 🔐 Email signup (stable reference)
+  const signUp = useCallback(async (data: {
     fullName: string;
     email: string;
     password: string;
@@ -163,10 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       savingsGoal: 5000,
       savingsGoalName: "Emergency Fund",
     });
-  };
+  }, []);
 
-  // 🔥 Google Login (Web + APK)
-  const signInWithGoogle = async () => {
+  // 🔥 Google Login (Web + APK) (stable reference)
+  const signInWithGoogle = useCallback(async () => {
     const isMobile = /Android|iPhone/i.test(navigator.userAgent);
 
     if (isMobile) {
@@ -176,10 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ✅ Web
       await signInWithPopup(auth, googleProvider);
     }
-  };
+  }, []);
 
-  // 🔓 Logout with credential cleanup
-  const signOut = async () => {
+  // 🔓 Logout with credential cleanup (stable reference)
+  const signOut = useCallback(async () => {
     try {
       // Purge any cached authentication credentials to prevent account-switching leakage
       localStorage.removeItem("auth_password");
@@ -191,19 +191,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
     }
-  };
+  }, []);
+
+  // Memoize context value to eliminate cascading re-renders across all consumers
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      signInWithGoogle,
+    }),
+    [user, loading, signIn, signUp, signOut, signInWithGoogle]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signIn,
-        signUp,
-        signOut,
-        signInWithGoogle,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

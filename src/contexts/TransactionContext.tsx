@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "./AuthContext";
@@ -128,18 +128,22 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Memoize context value to prevent downstream consumers from re-rendering unless data changes
+  const contextValue = useMemo(
+    () => ({
+      transactions,
+      loading,
+      error,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      refresh,
+    }),
+    [transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, refresh]
+  );
+
   return (
-    <TransactionContext.Provider
-      value={{
-        transactions,
-        loading,
-        error,
-        addTransaction,
-        updateTransaction,
-        deleteTransaction,
-        refresh,
-      }}
-    >
+    <TransactionContext.Provider value={contextValue}>
       {children}
     </TransactionContext.Provider>
   );

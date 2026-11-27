@@ -9,7 +9,7 @@ import {
   roundCurrency
 } from "@/lib/financial";
 import { getErrorMessage } from "@/lib/errorHandler";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Trash2, Calendar, Download, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ export default function Transactions() {
   }, [txns, filter, search, visibleCount]);
 
   // ✅ DELETE CONFIRMED WITH GUARD & FEEDBACK
-  const handleDeleteConfirmed = async () => {
+  const handleDeleteConfirmed = useCallback(async () => {
     if (!confirmDeleteTxn || deletingId) return;
     try {
       setDeletingId(confirmDeleteTxn.id);
@@ -105,18 +105,18 @@ export default function Transactions() {
     } finally {
       setDeletingId(null);
     }
-  };
+  }, [confirmDeleteTxn, deletingId, deleteTransaction, toast]);
 
   // ✅ EDIT TRANSACTION IN FIRESTORE WITH RESILIENT ERROR HANDLING
-  const handleStartEdit = (txn: Transaction) => {
+  const handleStartEdit = useCallback((txn: Transaction) => {
     setEditingTxn(txn);
     setEditAmount(String(txn.amount || ""));
     setEditCategory(txn.category || "Food");
     setEditType((txn.type as "income" | "expense") || "expense");
     setEditDescription(txn.description || "");
-  };
+  }, []);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editingTxn || editLoading) return;
     const safeAmount = roundCurrency(editAmount);
     if (isNaN(safeAmount) || safeAmount <= 0) {
@@ -144,10 +144,10 @@ export default function Transactions() {
     } finally {
       setEditLoading(false);
     }
-  };
+  }, [editingTxn, editLoading, editAmount, editType, editCategory, editDescription, updateTransaction, toast]);
 
   // ✅ EXPORT CSV
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     if (filteredTxns.length === 0) {
       toast({
         title: "Nothing to export",
@@ -188,7 +188,7 @@ export default function Transactions() {
       title: "Exported!",
       description: `${filteredTxns.length} transactions saved as CSV`,
     });
-  };
+  }, [filteredTxns, toast]);
 
   const categoryEmojis: Record<string, string> = {
     Food: "🍕",
