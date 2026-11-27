@@ -16,33 +16,40 @@ export default function Dashboard() {
   const [txns, setTxns] = useState<any[]>([]);
   
   useEffect(() => {
-  if (!user) return;
+    if (!user?.uid) {
+      setTxns([]);
+      return;
+    }
 
-  const q = query(
-    collection(db, "transactions"),
-    where("userId", "==", user.uid)
-  );
+    const q = query(
+      collection(db, "transactions"),
+      where("userId", "==", user.uid)
+    );
 
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map((doc) => {
-      const d = doc.data();
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => {
+          const d = doc.data();
 
-      return {
-        id: doc.id,
-        ...d,
-        date: d.date?.seconds
-          ? new Date(d.date.seconds * 1000).toISOString()
-          : d.date ?? new Date().toISOString(),
-      };
-    });
+          return {
+            id: doc.id,
+            ...d,
+            date: d.date?.seconds
+              ? new Date(d.date.seconds * 1000).toISOString()
+              : d.date ?? new Date().toISOString(),
+          };
+        });
 
-    console.log("FETCHED DATA:", data); // 🔍 debug
+        setTxns(data);
+      },
+      (error) => {
+        console.error("Dashboard transactions listener error:", error);
+      }
+    );
 
-    setTxns(data);
-  });
-
-  return () => unsubscribe();
-}, [user]);
+    return () => unsubscribe();
+  }, [user]);
 
 
   const { income, expenses, balance, recentTxns, moodData, weeklyData, categoryBreakdown, streak, savingsProgress, savingTips } = useMemo(() => {

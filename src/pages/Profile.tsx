@@ -42,20 +42,29 @@ export default function Profile() {
 
   // Real-time transactions for streak calculation
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setTxns([]);
+      return;
+    }
 
     const q = query(
       collection(db, "transactions"),
       where("userId", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setTxns(data);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTxns(data);
+      },
+      (error) => {
+        console.error("Profile transactions listener error:", error);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);

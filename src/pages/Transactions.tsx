@@ -29,7 +29,10 @@ export default function Transactions() {
 
   // ✅ REALTIME FIRESTORE LISTENER
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setTxns([]);
+      return;
+    }
 
     const q = query(
       collection(db, "transactions"),

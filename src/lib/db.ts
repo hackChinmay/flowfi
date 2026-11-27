@@ -1,15 +1,26 @@
 import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
-import { app } from "./firebase";
+import { app, auth } from "./firebase";
 
 const db = getFirestore(app);
 
-// Add transaction
+// Add transaction with enforced authenticated user ownership
 export const addTransaction = async (data: any) => {
-  await addDoc(collection(db, "transactions"), data);
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) {
+    throw new Error("Unauthorized: User must be signed in to add transactions");
+  }
+  await addDoc(collection(db, "transactions"), {
+    ...data,
+    userId: currentUid,
+  });
 };
 
-// Get transactions for a user
+// Get transactions for a user scoped to authenticated user
 export const getTransactions = async (userId: string) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid || currentUid !== userId) {
+    throw new Error("Unauthorized: Cannot access another user's transactions");
+  }
   const q = query(
     collection(db, "transactions"),
     where("userId", "==", userId)

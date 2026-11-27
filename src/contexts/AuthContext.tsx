@@ -64,39 +64,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribeFirestore: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous Firestore listener on auth change
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+        unsubscribeFirestore = undefined;
+      }
+
       if (firebaseUser) {
         const userRef = doc(db, "users", firebaseUser.uid);
 
-        // Ensure user exists in Firestore
-        await setDoc(
+        try {
+          // Ensure user exists in Firestore
+          await setDoc(
+            userRef,
+            {
+              fullName: firebaseUser.displayName || "",
+              email: firebaseUser.email,
+              photoURL: firebaseUser.photoURL,
+            },
+            { merge: true }
+          );
+        } catch (err) {
+          console.error("Failed to sync user document:", err);
+        }
+
+        // Real-time sync with permission/error callback
+        unsubscribeFirestore = onSnapshot(
           userRef,
-          {
-            fullName: firebaseUser.displayName || "",
-            email: firebaseUser.email,
-            photoURL: firebaseUser.photoURL,
+          (snap) => {
+            const data = snap.data() || {};
+
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: data.fullName || firebaseUser.displayName || "",
+              photoURL: firebaseUser.photoURL || null,
+              gender: data.gender || "",
+              profession: data.profession || "",
+              spendingLimit: typeof data.spendingLimit === "number" ? data.spendingLimit : 0,
+              savingsGoal: typeof data.savingsGoal === "number" ? data.savingsGoal : 0,
+              savingsGoalName: data.savingsGoalName || "Emergency Fund",
+              streak: data.streak || 0,
+            });
+
+            setLoading(false);
           },
-          { merge: true }
+          (error) => {
+            console.error("Firestore user profile listener error:", error);
+            // Fallback to basic auth identity on permission error or offline state
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: firebaseUser.displayName || "",
+              photoURL: firebaseUser.photoURL || null,
+            });
+            setLoading(false);
+          }
         );
-
-        // Real-time sync
-        unsubscribeFirestore = onSnapshot(userRef, (snap) => {
-          const data = snap.data() || {};
-
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            fullName: data.fullName || firebaseUser.displayName || "",
-            photoURL: firebaseUser.photoURL || null,
-            gender: data.gender || "",
-            profession: data.profession || "",
-            spendingLimit: typeof data.spendingLimit === "number" ? data.spendingLimit : 0,
-            savingsGoal: typeof data.savingsGoal === "number" ? data.savingsGoal : 0,
-            savingsGoalName: data.savingsGoalName || "Emergency Fund",
-            streak: data.streak || 0,
-          });
-
-          setLoading(false);
-        });
       } else {
         setUser(null);
         setLoading(false);
@@ -154,9 +178,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 🔓 Logout
+  // 🔓 Logout with credential cleanup
   const signOut = async () => {
-    await firebaseSignOut(auth);
+    try {
+      // Purge any cached authentication credentials to prevent account-switching leakage
+      localStorage.removeItem("auth_password");
+      localStorage.removeItem("flowfi_session");
+      await firebaseSignOut(auth);
+    } catch (err) {
+      console.error("Sign-out error:", err);
+      throw err;
+    } finally {
+      setUser(null);
+    }
   };
 
   return (

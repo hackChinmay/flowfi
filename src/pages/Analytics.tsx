@@ -28,22 +28,30 @@ export default function Analytics() {
 
   // 🔥 FIRESTORE REAL-TIME DATA
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) {
+      setTxns([]);
+      return;
+    }
 
     const q = query(
       collection(db, "transactions"),
       where("userId", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as any),
-      }));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as any),
+        }));
 
-      console.log("Analytics Data:", data);
-      setTxns(data);
-    });
+        setTxns(data);
+      },
+      (error) => {
+        console.error("Analytics transactions listener error:", error);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);

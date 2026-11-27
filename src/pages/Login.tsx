@@ -36,9 +36,20 @@ export default function Login() {
     try {
       await signIn(email, password);
 
-      // Save for fingerprint login
+      // Clean up any legacy insecure plaintext password storage
+      localStorage.removeItem("auth_password");
       localStorage.setItem("auth_email", email);
-      localStorage.setItem("auth_password", password);
+
+      // Securely store credentials in device keychain/keystore via Capacitor NativeBiometric if available
+      try {
+        await NativeBiometric.setCredentials({
+          server: "flowfi.app",
+          username: email,
+          password: password,
+        });
+      } catch {
+        // Ignored on web/unsupported platforms
+      }
 
       navigate("/dashboard");
     } catch (err: any) {
@@ -69,7 +80,7 @@ export default function Login() {
     }
   };
 
-  // ✅ FINGERPRINT LOGIN
+  // ✅ SECURE BIOMETRIC LOGIN
   const handleFingerprint = async () => {
     try {
       await NativeBiometric.verifyIdentity({
@@ -77,19 +88,23 @@ export default function Login() {
         title: "Authentication"
       });
 
-      const savedEmail = localStorage.getItem("auth_email");
-      const savedPassword = localStorage.getItem("auth_password");
+      let creds: { username?: string; password?: string } | null = null;
+      try {
+        creds = await NativeBiometric.getCredentials({ server: "flowfi.app" });
+      } catch {
+        creds = null;
+      }
 
-      if (!savedEmail || !savedPassword) {
+      if (!creds?.username || !creds?.password) {
         toast({
           title: "Error",
-          description: "Please login once first",
+          description: "Please sign in with email and password first to enable biometric login",
           variant: "destructive"
         });
         return;
       }
 
-      await signIn(savedEmail, savedPassword);
+      await signIn(creds.username, creds.password);
       navigate("/dashboard");
 
       toast({
@@ -99,7 +114,7 @@ export default function Login() {
     } catch (error) {
       toast({
         title: "Failed",
-        description: "Authentication failed",
+        description: "Biometric authentication failed or cancelled",
         variant: "destructive"
       });
     }
