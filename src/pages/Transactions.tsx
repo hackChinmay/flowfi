@@ -8,8 +8,9 @@ import {
   calculateTotalExpenses,
   roundCurrency
 } from "@/lib/financial";
+import { getErrorMessage } from "@/lib/errorHandler";
 import { useMemo, useState, useEffect } from "react";
-import { Search, Trash2, Calendar, Download, Pencil, Check, X } from "lucide-react";
+import { Search, Trash2, Calendar, Download, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -17,13 +18,14 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Transactions() {
   const { user } = useAuth();
-  const { transactions: txns, updateTransaction, deleteTransaction } = useTransactions();
+  const { transactions: txns, error: txnsError, refresh, updateTransaction, deleteTransaction } = useTransactions();
   const { toast } = useToast();
 
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [search, setSearch] = useState("");
   const PAGE_SIZE = 20;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Reset pagination when search or filter changes
   useEffect(() => {
@@ -75,17 +77,21 @@ export default function Transactions() {
     return { filteredTxns: all, pagedTxns: paged, grouped: groupedMap };
   }, [txns, filter, search, visibleCount]);
 
-  // ✅ DELETE FROM FIRESTORE
+  // ✅ DELETE FROM FIRESTORE WITH GUARD
   const handleDelete = async (id: string) => {
+    if (deletingId) return;
     try {
+      setDeletingId(id);
       await deleteTransaction(id);
-      toast({ title: "Deleted", description: "Transaction removed" });
+      toast({ title: "Deleted", description: "Transaction removed successfully" });
     } catch (err) {
-      toast({ title: "Error", description: "Failed to delete transaction", variant: "destructive" });
+      toast({ title: "Delete Failed", description: getErrorMessage(err), variant: "destructive" });
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  // ✅ EDIT TRANSACTION IN FIRESTORE
+  // ✅ EDIT TRANSACTION IN FIRESTORE WITH RESILIENT ERROR HANDLING
   const handleStartEdit = (txn: Transaction) => {
     setEditingTxn(txn);
     setEditAmount(String(txn.amount || ""));
@@ -95,7 +101,7 @@ export default function Transactions() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editingTxn) return;
+    if (!editingTxn || editLoading) return;
     const safeAmount = roundCurrency(editAmount);
     if (isNaN(safeAmount) || safeAmount <= 0) {
       toast({ title: "Invalid Amount", description: "Please enter a valid positive amount", variant: "destructive" });
@@ -118,7 +124,7 @@ export default function Transactions() {
       toast({ title: "Updated 🎉", description: "Transaction updated successfully" });
     } catch (err) {
       console.error("Failed to update transaction:", err);
-      toast({ title: "Error", description: "Failed to update transaction", variant: "destructive" });
+      toast({ title: "Update Failed", description: getErrorMessage(err), variant: "destructive" });
     } finally {
       setEditLoading(false);
     }
@@ -208,6 +214,22 @@ export default function Transactions() {
           <ThemeToggle />
         </div>
       </div>
+
+      {/* Database Error Banner with Retry */}
+      {txnsError && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-4 flex items-center justify-between text-xs font-semibold gap-3 animate-fade-in-up">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>{txnsError}</span>
+          </div>
+          <button
+            onClick={refresh}
+            className="px-2.5 py-1 bg-destructive/15 hover:bg-destructive/25 text-destructive rounded-lg text-xs font-bold transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />

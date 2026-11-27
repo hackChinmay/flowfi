@@ -42,6 +42,9 @@ export const updateTransaction = async (id: string, updates: Record<string, any>
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to update transactions");
   }
+  if (!id || typeof id !== "string") {
+    throw new Error("Invalid transaction ID");
+  }
   const safeUpdates = { ...updates };
   // Guard immutable fields
   delete safeUpdates.userId;
@@ -60,6 +63,9 @@ export const deleteTransaction = async (id: string) => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to delete transactions");
+  }
+  if (!id || typeof id !== "string") {
+    throw new Error("Invalid transaction ID");
   }
   await deleteDoc(doc(db, "transactions", id));
 };

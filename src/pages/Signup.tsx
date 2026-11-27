@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getErrorMessage } from "@/lib/errorHandler";
 
 const PROFESSIONS = ["Student", "Developer", "Designer", "Entrepreneur", "Freelancer", "Manager", "Other"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -38,7 +39,7 @@ export default function Signup() {
       });
       navigate("/dashboard");
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Registration Failed", description: getErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }

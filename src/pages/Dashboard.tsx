@@ -20,7 +20,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { transactions: txns } = useTransactions();
+  const { transactions: txns, error: txnsError, refresh } = useTransactions();
   const navigate = useNavigate();
 
   const [tipPage, setTipPage] = useState(0);
@@ -175,6 +175,22 @@ export default function Dashboard() {
           <ThemeToggle />
         </div>
       </div>
+
+      {/* Database Error Banner with Retry */}
+      {txnsError && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-4 flex items-center justify-between text-xs font-semibold gap-3 animate-fade-in-up">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>{txnsError}</span>
+          </div>
+          <button
+            onClick={refresh}
+            className="px-2.5 py-1 bg-destructive/15 hover:bg-destructive/25 text-destructive rounded-lg text-xs font-bold transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Balance Card */}
       <div className="relative gradient-primary rounded-2xl p-5 text-primary-foreground shadow-xl animate-fade-in-up stagger-1 overflow-hidden">

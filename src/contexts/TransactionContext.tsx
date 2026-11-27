@@ -7,6 +7,7 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "@/lib/db";
+import { getErrorMessage, logError, withRetry } from "@/lib/errorHandler";
 import type { Transaction } from "@/lib/storage";
 
 interface TransactionContextType {
@@ -26,6 +27,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState<number>(0);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setRetryTrigger((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     // Clean up and clear data immediately on logout or if user is unauthenticated
@@ -78,11 +86,12 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         });
 
         setTransactions(rawDocs);
+        setError(null);
         setLoading(false);
       },
       (err) => {
-        console.error("Centralized transaction listener error:", err);
-        setError(err.message || "Failed to load transactions");
+        logError(err, { operation: "onSnapshot_transactions", userId: user.uid });
+        setError(getErrorMessage(err));
         setLoading(false);
       }
     );
@@ -90,22 +99,33 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     return () => {
       unsubscribe();
     };
-  }, [user?.uid]);
+  }, [user?.uid, retryTrigger]);
 
   const addTransaction = useCallback(async (data: any) => {
-    await dbAddTransaction(data);
+    try {
+      await withRetry(() => dbAddTransaction(data), { maxRetries: 2 });
+    } catch (err) {
+      logError(err, { operation: "addTransaction", amount: data?.amount });
+      throw err;
+    }
   }, []);
 
   const updateTransaction = useCallback(async (id: string, updates: Record<string, any>) => {
-    await dbUpdateTransaction(id, updates);
+    try {
+      await withRetry(() => dbUpdateTransaction(id, updates), { maxRetries: 2 });
+    } catch (err) {
+      logError(err, { operation: "updateTransaction", id });
+      throw err;
+    }
   }, []);
 
   const deleteTransaction = useCallback(async (id: string) => {
-    await dbDeleteTransaction(id);
-  }, []);
-
-  const refresh = useCallback(() => {
-    // For manual triggers if needed
+    try {
+      await withRetry(() => dbDeleteTransaction(id), { maxRetries: 2 });
+    } catch (err) {
+      logError(err, { operation: "deleteTransaction", id });
+      throw err;
+    }
   }, []);
 
   return (

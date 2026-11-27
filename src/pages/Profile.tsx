@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStreak, calculateStreakFromTransactions, formatCurrency } from "@/lib/storage";
 import { roundCurrency } from "@/lib/financial";
+import { getErrorMessage } from "@/lib/errorHandler";
 import { useTheme } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -26,6 +27,9 @@ export default function Profile() {
   const [editForm, setEditForm] = useState({ fullName: "", gender: "Male", profession: PROFESSIONS[0] });
   const [savingsGoal, setSavingsGoal] = useState(user?.savingsGoal ? user.savingsGoal.toString() : "5000");
   const [savingsGoalName, setSavingsGoalName] = useState(user?.savingsGoalName || "Emergency Fund");
+  const [limitLoading, setLimitLoading] = useState(false);
+  const [goalLoading, setGoalLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const { transactions: txns } = useTransactions();
 
   useEffect(() => {
@@ -53,7 +57,7 @@ export default function Profile() {
   };
 
   const handleSaveLimit = async () => {
-    if (!user) return;
+    if (!user || limitLoading) return;
 
     const val = roundCurrency(limit);
     if (isNaN(val) || val < 0 || val > 1000000000) {
@@ -62,6 +66,7 @@ export default function Profile() {
     }
 
     try {
+      setLimitLoading(true);
       await updateDoc(doc(db, "users", user.uid), {
         spendingLimit: val,
       });
@@ -72,12 +77,14 @@ export default function Profile() {
       });
     } catch (err) {
       console.error(err);
-      toast({ title: "Error", description: "Failed to update spending limit", variant: "destructive" });
+      toast({ title: "Update Failed", description: getErrorMessage(err), variant: "destructive" });
+    } finally {
+      setLimitLoading(false);
     }
   };
 
   const handleSaveSavingsGoal = async () => {
-    if (!user) return;
+    if (!user || goalLoading) return;
 
     const val = roundCurrency(savingsGoal);
     if (isNaN(val) || val < 0 || val > 1000000000) {
@@ -86,6 +93,7 @@ export default function Profile() {
     }
 
     try {
+      setGoalLoading(true);
       await updateDoc(doc(db, "users", user.uid), {
         savingsGoal: val,
         savingsGoalName: savingsGoalName.trim() || "Emergency Fund",
@@ -97,7 +105,9 @@ export default function Profile() {
       });
     } catch (err) {
       console.error(err);
-      toast({ title: "Error", description: "Failed to update savings goal", variant: "destructive" });
+      toast({ title: "Update Failed", description: getErrorMessage(err), variant: "destructive" });
+    } finally {
+      setGoalLoading(false);
     }
   };
 
@@ -112,7 +122,7 @@ export default function Profile() {
   };
 
   const saveEdit = async () => {
-    if (!user) return;
+    if (!user || profileSaving) return;
 
     if (!editForm.fullName.trim()) {
       toast({ title: "Error", description: "Name cannot be empty", variant: "destructive" });
@@ -120,6 +130,7 @@ export default function Profile() {
     }
 
     try {
+      setProfileSaving(true);
       await updateDoc(doc(db, "users", user.uid), {
         fullName: editForm.fullName.trim(),
         gender: editForm.gender,
@@ -131,7 +142,9 @@ export default function Profile() {
       toast({ title: "Profile updated! ✨" });
     } catch (err) {
       console.error(err);
-      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
+      toast({ title: "Update Failed", description: getErrorMessage(err), variant: "destructive" });
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -166,7 +179,7 @@ export default function Profile() {
             <p className="text-sm font-semibold">Edit Profile</p>
             <div className="flex gap-1.5">
               <button onClick={() => setEditing(false)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><X size={16} /></button>
-              <button onClick={saveEdit} className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-primary-foreground"><Check size={16} /></button>
+              <button disabled={profileSaving} onClick={saveEdit} className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-primary-foreground disabled:opacity-50"><Check size={16} /></button>
             </div>
           </div>
           <Input value={editForm.fullName} onChange={e => setEditForm(f => ({ ...f, fullName: e.target.value }))} placeholder="Full Name" className="h-10 rounded-xl" />
@@ -213,7 +226,9 @@ export default function Profile() {
         <div className="flex items-center gap-2"><Wallet size={16} className="text-primary" /><span className="text-sm font-medium">Monthly Spending Limit</span></div>
         <div className="flex gap-2">
           <Input type="number" value={limit} onChange={e => setLimit(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="e.g. 10000" />
-          <Button onClick={handleSaveLimit} className="rounded-xl gradient-primary text-primary-foreground px-4">Save</Button>
+          <Button disabled={limitLoading} onClick={handleSaveLimit} className="rounded-xl gradient-primary text-primary-foreground px-4">
+            {limitLoading ? "Saving..." : "Save"}
+          </Button>
         </div>
       </div>
 
@@ -223,7 +238,9 @@ export default function Profile() {
         <Input placeholder="Goal name (e.g. Vacation)" value={savingsGoalName} onChange={e => setSavingsGoalName(e.target.value)} className="h-10 rounded-xl" />
         <div className="flex gap-2">
           <Input type="number" value={savingsGoal} onChange={e => setSavingsGoal(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="Target amount" />
-          <Button onClick={handleSaveSavingsGoal} className="rounded-xl gradient-accent text-accent-foreground px-4">Save</Button>
+          <Button disabled={goalLoading} onClick={handleSaveSavingsGoal} className="rounded-xl gradient-accent text-accent-foreground px-4">
+            {goalLoading ? "Saving..." : "Save"}
+          </Button>
         </div>
       </div>
 

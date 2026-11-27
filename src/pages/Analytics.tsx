@@ -15,7 +15,7 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 
-import { TrendingUp, TrendingDown, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown, BarChart2, AlertTriangle } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const CHART_COLORS = [
@@ -29,7 +29,7 @@ type TabType = "monthly" | "categories";
 
 export default function Analytics() {
   const { user } = useAuth();
-  const { transactions: txns } = useTransactions();
+  const { transactions: txns, error: txnsError, refresh } = useTransactions();
   const [tab, setTab] = useState<TabType>("monthly");
 
   // 🧠 CALCULATIONS WITH FINANCIAL INTEGRITY
@@ -75,6 +75,22 @@ export default function Analytics() {
         <h1 className="text-xl font-bold">Analytics</h1>
         <ThemeToggle />
       </div>
+
+      {/* Database Error Banner with Retry */}
+      {txnsError && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-4 flex items-center justify-between text-xs font-semibold gap-3 animate-fade-in-up">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>{txnsError}</span>
+          </div>
+          <button
+            onClick={refresh}
+            className="px-2.5 py-1 bg-destructive/15 hover:bg-destructive/25 text-destructive rounded-lg text-xs font-bold transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* STATS */}
       <div className="grid grid-cols-3 gap-3">

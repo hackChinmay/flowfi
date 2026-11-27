@@ -9,6 +9,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { serverTimestamp } from "firebase/firestore";
 import { updateStreak } from "@/lib/storage";
 import { roundCurrency } from "@/lib/financial";
+import { getErrorMessage } from "@/lib/errorHandler";
 
 export default function AddExpense() {
   const { user } = useAuth();
@@ -90,8 +91,8 @@ export default function AddExpense() {
     } catch (error) {
       console.error("Error adding transaction:", error);
       toast({
-        title: "Error",
-        description: "Failed to save transaction",
+        title: "Transaction Failed",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

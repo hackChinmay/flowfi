@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getErrorMessage } from "@/lib/errorHandler";
 
 export default function Login() {
   const { signIn, signInWithGoogle } = useAuth(); // ✅ added Google
@@ -54,8 +55,8 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err: any) {
       toast({
-        title: "Error",
-        description: err.message,
+        title: "Login Failed",
+        description: getErrorMessage(err),
         variant: "destructive"
       });
     } finally {
@@ -72,7 +73,7 @@ export default function Login() {
     } catch (err: any) {
       toast({
         title: "Google Login Failed",
-        description: err.message,
+        description: getErrorMessage(err),
         variant: "destructive"
       });
     } finally {
