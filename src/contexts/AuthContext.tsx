@@ -7,11 +7,23 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  deleteUser,
 } from "firebase/auth";
 import { NativeBiometric } from "capacitor-native-biometric";
 
 import { auth, googleProvider, db } from "@/lib/firebase";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  onSnapshot,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { clearUserData } from "@/lib/storage";
 
 export interface AppUser {
   uid: string;
@@ -39,6 +51,7 @@ interface AuthContextType {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -241,6 +254,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 🗑️ Permanently delete user account and all associated financial records
+  const deleteAccount = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("Unauthorized: No authenticated user to delete");
+    }
+
+    const uid = currentUser.uid;
+
+    try {
+      // 1. Delete all user transactions from Firestore in chunks of up to 400
+      try {
+        const txQ = query(collection(db, "transactions"), where("userId", "==", uid));
+        const txSnap = await getDocs(txQ);
+        const batchSize = 400;
+        for (let i = 0; i < txSnap.docs.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const chunk = txSnap.docs.slice(i, i + batchSize);
+          chunk.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error("Failed to delete user transactions during account deletion:", err);
+        throw err;
+      }
+
+      // 2. Delete optional user collections (budgets, goals) if present
+      try {
+        const budgetQ = query(collection(db, "budgets"), where("userId", "==", uid));
+        const budgetSnap = await getDocs(budgetQ);
+        if (!budgetSnap.empty) {
+          const batch = writeBatch(db);
+          budgetSnap.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } catch {
+        // Optional collection if not present
+      }
+
+      try {
+        const goalQ = query(collection(db, "goals"), where("userId", "==", uid));
+        const goalSnap = await getDocs(goalQ);
+        if (!goalSnap.empty) {
+          const batch = writeBatch(db);
+          goalSnap.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } catch {
+        // Optional collection if not present
+      }
+
+      // 3. Delete user profile document
+      try {
+        await deleteDoc(doc(db, "users", uid));
+      } catch (err) {
+        console.error("Failed to delete user profile document during account deletion:", err);
+        throw err;
+      }
+
+      // 4. Scrub local storage and biometric credentials
+      localStorage.removeItem("auth_password");
+      localStorage.removeItem("auth_email");
+      localStorage.removeItem("flowfi_session");
+      localStorage.removeItem("flowfi_users");
+      localStorage.removeItem("flowfi_transactions");
+      clearUserData(uid);
+
+      try {
+        await NativeBiometric.deleteCredentials({ server: "flowfi.app" });
+      } catch {
+        // Ignored on web or if biometrics were not configured
+      }
+
+      // 5. Delete Firebase Auth user
+      try {
+        await deleteUser(currentUser);
+      } catch (err: any) {
+        if (err?.code === "auth/requires-recent-login") {
+          throw new Error(
+            "For security, account deletion requires recent authentication. Please sign out, sign in again, and retry account deletion."
+          );
+        }
+        throw err;
+      }
+
+      // 6. Reset client state
+      setUser(null);
+      setLoading(false);
+    } catch (err) {
+      console.error("Account deletion error:", err);
+      throw err;
+    }
+  }, []);
+
   // Memoize context value to eliminate cascading re-renders across all consumers
   const value = useMemo(
     () => ({
@@ -250,8 +357,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       signInWithGoogle,
+      deleteAccount,
     }),
-    [user, loading, signIn, signUp, signOut, signInWithGoogle]
+    [user, loading, signIn, signUp, signOut, signInWithGoogle, deleteAccount]
   );
 
   return (

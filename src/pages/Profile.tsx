@@ -3,7 +3,7 @@ import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/contexts/TransactionContext";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Moon, Sun, User, Mail, Briefcase, Wallet, Pencil, Check, X, Target, Flame } from "lucide-react";
+import { LogOut, Moon, Sun, User, Mail, Briefcase, Wallet, Pencil, Check, X, Target, Flame, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
@@ -13,11 +13,21 @@ import { roundCurrency } from "@/lib/financial";
 import { getErrorMessage } from "@/lib/errorHandler";
 import { useTheme } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const PROFESSIONS = ["Student", "Developer", "Designer", "Entrepreneur", "Freelancer", "Manager", "Other"];
 
 export default function Profile() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
@@ -31,6 +41,9 @@ export default function Profile() {
   const [goalLoading, setGoalLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const { transactions: txns } = useTransactions();
 
   useEffect(() => {
@@ -66,6 +79,38 @@ export default function Profile() {
       });
     } finally {
       setLogoutLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim() !== "DELETE") {
+      toast({
+        title: "Confirmation Required",
+        description: 'Please type "DELETE" exactly to confirm account deletion.',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      await deleteAccount();
+      toast({
+        title: "Account Permanently Deleted",
+        description: "Your profile, transactions, and settings have been completely erased.",
+      });
+      navigate("/");
+    } catch (err: any) {
+      console.error("Account deletion failed:", err);
+      toast({
+        title: "Account Deletion Failed",
+        description: getErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmText("");
     }
   };
 
@@ -375,6 +420,79 @@ export default function Profile() {
         <LogOut className="mr-2" size={18} aria-hidden="true" />
         {logoutLoading ? "Logging out..." : "Logout"}
       </Button>
+
+      {/* Account Data & Privacy */}
+      <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-5 border-destructive/20">
+        <div className="flex items-center gap-2">
+          <ShieldAlert size={16} className="text-destructive" aria-hidden="true" />
+          <h2 className="text-sm font-semibold">Account Data &amp; Privacy</h2>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          FlowFi respects your privacy. You can permanently erase all your personal financial transactions, spending limits, savings goals, and account profile from Cloud Firestore at any time.
+        </p>
+        <Button
+          onClick={() => {
+            setDeleteConfirmText("");
+            setDeleteDialogOpen(true);
+          }}
+          variant="outline"
+          aria-label="Delete FlowFi account and data"
+          className="w-full rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive text-xs h-10 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+        >
+          <Trash2 className="mr-2" size={14} aria-hidden="true" />
+          Delete Account &amp; Financial Data
+        </Button>
+      </div>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 size={20} aria-hidden="true" />
+              Permanently Delete Account?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-left text-xs leading-relaxed text-muted-foreground">
+              <span>
+                This action is <strong className="text-foreground">irreversible</strong>.
+                All of your recorded financial transactions, monthly spending limits, savings goals, and profile records will be permanently deleted from Cloud Firestore.
+              </span>
+              <span className="block pt-2">
+                To confirm, type <strong className="text-destructive font-mono">DELETE</strong> below:
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder='Type "DELETE" to confirm'
+              aria-label="Type DELETE to confirm account deletion"
+              className="h-10 rounded-xl font-mono text-center tracking-wider text-sm"
+            />
+          </div>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel
+              disabled={deleteLoading}
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteConfirmText("");
+              }}
+              className="rounded-xl"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              disabled={deleteConfirmText.trim() !== "DELETE" || deleteLoading}
+              onClick={handleDeleteAccount}
+              variant="destructive"
+              className="rounded-xl"
+            >
+              {deleteLoading ? "Deleting..." : "Permanently Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

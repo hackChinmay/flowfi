@@ -254,6 +254,11 @@ export function sanitizeContext(context?: Record<string, any>): Record<string, a
     "key",
     "apiKey",
     "accessToken",
+    "pan",
+    "ssn",
+    "aadhaar",
+    "cardnumber",
+    "accountnumber",
   ];
 
   for (const [key, value] of Object.entries(context)) {

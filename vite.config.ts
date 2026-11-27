@@ -19,9 +19,13 @@ export default defineConfig({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  esbuild: {
+    drop: ["debugger"],
+  },
   build: {
     target: "esnext",
     minify: "esbuild",
+    sourcemap: false,
     cssCodeSplit: true,
     chunkSizeWarningLimit: 600,
     rollupOptions: {

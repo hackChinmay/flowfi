@@ -87,6 +87,12 @@ export function signOut() {
   localStorage.removeItem(TRANSACTIONS_KEY);
 }
 
+export function clearUserData(userId?: string) {
+  if (userId) {
+    localStorage.removeItem(`${STREAK_KEY}_${userId}`);
+  }
+}
+
 function setSession(userId: string) {
   localStorage.setItem(SESSION_KEY, userId);
 }
