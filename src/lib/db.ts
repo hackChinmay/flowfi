@@ -1,7 +1,6 @@
 import {
-  getFirestore,
   collection,
-  addDoc,
+  setDoc,
   getDocs,
   query,
   where,
@@ -14,13 +13,11 @@ import {
   QueryConstraint,
   DocumentSnapshot
 } from "firebase/firestore";
-import { app, auth } from "./firebase";
+import { app, auth, db } from "./firebase";
 import { roundCurrency } from "./financial";
 
-const db = getFirestore(app);
-
-// Add transaction with enforced authenticated user ownership and monetary rounding
-export const addTransaction = async (data: any, expectedUid?: string) => {
+// Add transaction with enforced authenticated user ownership, monetary rounding, and idempotent creation
+export const addTransaction = async (data: any, expectedUid?: string): Promise<string> => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to add transactions");
@@ -32,11 +29,22 @@ export const addTransaction = async (data: any, expectedUid?: string) => {
   if (safeAmount <= 0) {
     throw new Error("Invalid amount: Transaction amount must be greater than zero");
   }
-  await addDoc(collection(db, "transactions"), {
+  if (safeAmount > 1000000000) {
+    throw new Error("Invalid amount: Transaction amount cannot exceed ₹100 Crore");
+  }
+
+  // Idempotency: use provided docId or generate a client-side UUID so retries never create duplicate documents
+  const docId = data.id || crypto.randomUUID();
+  const docRef = doc(db, "transactions", docId);
+
+  await setDoc(docRef, {
     ...data,
+    id: docId,
     amount: safeAmount,
     userId: currentUid,
   });
+
+  return docId;
 };
 
 // Update transaction with authenticated owner enforcement and immutable field protection

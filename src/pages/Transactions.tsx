@@ -6,8 +6,11 @@ import {
   calculateBalance,
   calculateTotalIncome,
   calculateTotalExpenses,
-  roundCurrency
+  roundCurrency,
+  parseTransactionDate
 } from "@/lib/financial";
+import { addTransaction } from "@/lib/db";
+import { downloadTransactionsCSV } from "@/lib/exportUtils";
 import { getErrorMessage } from "@/lib/errorHandler";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +18,7 @@ import { Search, Trash2, Calendar, Download, Pencil, Check, X, AlertTriangle } f
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Transactions() {
@@ -76,7 +80,7 @@ export default function Transactions() {
     const groupedMap: Record<string, Transaction[]> = {};
 
     paged.forEach((t) => {
-      const d = new Date(t.date);
+      const d = parseTransactionDate(t);
       const key = isNaN(d.getTime())
         ? "Other"
         : d.toLocaleDateString("en-IN", {
@@ -92,20 +96,40 @@ export default function Transactions() {
     return { filteredTxns: all, pagedTxns: paged, grouped: groupedMap };
   }, [txns, filter, search, visibleCount]);
 
-  // ✅ DELETE CONFIRMED WITH GUARD & FEEDBACK
+  // ✅ DELETE CONFIRMED WITH GUARD & UNDO RECOVERY ACTION
   const handleDeleteConfirmed = useCallback(async () => {
     if (!confirmDeleteTxn || deletingId) return;
+    const deletedRecord = { ...confirmDeleteTxn };
     try {
       setDeletingId(confirmDeleteTxn.id);
       await deleteTransaction(confirmDeleteTxn.id);
-      toast({ title: "Deleted", description: "Transaction removed successfully" });
       setConfirmDeleteTxn(null);
+
+      toast({
+        title: "Transaction Deleted",
+        description: `${deletedRecord.description || deletedRecord.category} (${formatCurrency(deletedRecord.amount)}) was removed.`,
+        action: (
+          <ToastAction
+            altText="Undo deletion"
+            onClick={async () => {
+              try {
+                await addTransaction(deletedRecord, user?.uid);
+                toast({ title: "Restored", description: "Transaction restored successfully" });
+              } catch (err) {
+                toast({ title: "Restore Failed", description: getErrorMessage(err), variant: "destructive" });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch (err) {
       toast({ title: "Delete Failed", description: getErrorMessage(err), variant: "destructive" });
     } finally {
       setDeletingId(null);
     }
-  }, [confirmDeleteTxn, deletingId, deleteTransaction, toast]);
+  }, [confirmDeleteTxn, deletingId, deleteTransaction, toast, user?.uid]);
 
   // ✅ EDIT TRANSACTION IN FIRESTORE WITH RESILIENT ERROR HANDLING
   const handleStartEdit = useCallback((txn: Transaction) => {
@@ -146,7 +170,7 @@ export default function Transactions() {
     }
   }, [editingTxn, editLoading, editAmount, editType, editCategory, editDescription, updateTransaction, toast]);
 
-  // ✅ EXPORT CSV
+  // ✅ EXPORT CSV WITH RFC 4180 COMPLIANCE AND FORMULA DEFENSE
   const handleExportCSV = useCallback(() => {
     if (filteredTxns.length === 0) {
       toast({
@@ -156,39 +180,17 @@ export default function Transactions() {
       return;
     }
 
-    const header = ["Date", "Type", "Category", "Description", "Amount (₹)"];
+    const isAll = filteredTxns.length === txns.length;
+    const filenamePrefix = isAll ? "flowfi-transactions-all" : "flowfi-transactions-filtered";
+    const ok = downloadTransactionsCSV(filteredTxns, filenamePrefix);
 
-    const rows = filteredTxns.map((t) => {
-      const d = new Date(t.date);
-      const dateText = isNaN(d.getTime()) ? t.date : d.toLocaleDateString("en-IN");
-      return [
-        dateText,
-        t.type,
-        t.category,
-        t.description || "",
-        t.amount,
-      ];
-    });
-
-    const csv = [header, ...rows]
-      .map((r) => r.map(String).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "flowfi-transactions.csv";
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Exported!",
-      description: `${filteredTxns.length} transactions saved as CSV`,
-    });
-  }, [filteredTxns, toast]);
+    if (ok) {
+      toast({
+        title: "Exported!",
+        description: `${filteredTxns.length} transactions saved as RFC 4180 CSV`,
+      });
+    }
+  }, [filteredTxns, txns.length, toast]);
 
   const categoryEmojis: Record<string, string> = {
     Food: "🍕",
