@@ -159,7 +159,7 @@ export default function Profile() {
 
       {/* Avatar & Name */}
       <div className="glass-card rounded-2xl p-5 flex items-center gap-4 relative animate-fade-in-up">
-        <div className="w-14 h-14 rounded-full gradient-accent flex items-center justify-center text-accent-foreground text-xl font-bold shadow-lg">
+        <div className="w-14 h-14 rounded-full gradient-accent flex items-center justify-center text-accent-foreground text-xl font-bold shadow-lg" aria-hidden="true">
           {user?.fullName?.charAt(0).toUpperCase() || "U"}
         </div>
         <div className="flex-1">
@@ -167,28 +167,70 @@ export default function Profile() {
           <p className="text-sm text-muted-foreground">{user?.profession || "Profession not set"}</p>
         </div>
         {!editing && (
-          <button onClick={startEditing} className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="Edit Profile">
-            <Pencil size={16} />
+          <button
+            onClick={startEditing}
+            aria-label="Edit Profile"
+            className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            title="Edit Profile"
+          >
+            <Pencil size={16} aria-hidden="true" />
           </button>
         )}
       </div>
 
       {editing && (
-        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up border-primary/20">
+        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up border-primary/20" role="region" aria-label="Edit Profile Form">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-semibold">Edit Profile</p>
             <div className="flex gap-1.5">
-              <button onClick={() => setEditing(false)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><X size={16} /></button>
-              <button disabled={profileSaving} onClick={saveEdit} className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-primary-foreground disabled:opacity-50"><Check size={16} /></button>
+              <button
+                onClick={() => setEditing(false)}
+                aria-label="Cancel editing profile"
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+              <button
+                disabled={profileSaving}
+                onClick={saveEdit}
+                aria-label="Save profile changes"
+                className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-primary-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Check size={16} aria-hidden="true" />
+              </button>
             </div>
           </div>
-          <Input value={editForm.fullName} onChange={e => setEditForm(f => ({ ...f, fullName: e.target.value }))} placeholder="Full Name" className="h-10 rounded-xl" />
-          <div className="flex gap-2">
+          <label htmlFor="profile-fullname" className="sr-only">Full Name</label>
+          <Input
+            id="profile-fullname"
+            aria-label="Full Name"
+            value={editForm.fullName}
+            onChange={e => setEditForm(f => ({ ...f, fullName: e.target.value }))}
+            placeholder="Full Name"
+            className="h-10 rounded-xl"
+          />
+          <div className="flex gap-2" role="radiogroup" aria-label="Gender">
             {["Male", "Female", "Other"].map(g => (
-              <button key={g} onClick={() => setEditForm(f => ({ ...f, gender: g }))} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${editForm.gender === g ? "gradient-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{g}</button>
+              <button
+                key={g}
+                role="radio"
+                aria-checked={editForm.gender === g}
+                aria-label={g}
+                onClick={() => setEditForm(f => ({ ...f, gender: g }))}
+                className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${editForm.gender === g ? "gradient-primary text-primary-foreground shadow" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              >
+                {g}
+              </button>
             ))}
           </div>
-          <select value={editForm.profession} onChange={e => setEditForm(f => ({ ...f, profession: e.target.value }))} className="w-full h-10 rounded-xl bg-muted border border-border px-3 text-sm text-foreground">
+          <label htmlFor="profile-profession" className="sr-only">Profession</label>
+          <select
+            id="profile-profession"
+            aria-label="Profession"
+            value={editForm.profession}
+            onChange={e => setEditForm(f => ({ ...f, profession: e.target.value }))}
+            className="w-full h-10 rounded-xl bg-muted border border-border px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
             {PROFESSIONS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
@@ -197,14 +239,14 @@ export default function Profile() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-1">
         <div className="glass-card rounded-2xl p-4 text-center">
-          <div className="w-10 h-10 rounded-full bg-warning/15 text-warning flex items-center justify-center mx-auto mb-2">
+          <div className="w-10 h-10 rounded-full bg-warning/15 text-warning flex items-center justify-center mx-auto mb-2" aria-hidden="true">
             <Flame size={20} />
           </div>
           <p className="text-2xl font-bold">{streak}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Day Streak</p>
         </div>
         <div className="glass-card rounded-2xl p-4 text-center">
-          <div className="w-10 h-10 rounded-full gradient-cool flex items-center justify-center mx-auto mb-2 text-secondary-foreground">
+          <div className="w-10 h-10 rounded-full gradient-cool flex items-center justify-center mx-auto mb-2 text-secondary-foreground" aria-hidden="true">
             <Target size={20} />
           </div>
           <p className="text-2xl font-bold">{formatCurrency(user.savingsGoal || 0)}</p>
@@ -216,17 +258,34 @@ export default function Profile() {
 
       {/* Details */}
       <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-2">
-        <div className="flex items-center gap-3"><Mail size={16} className="text-secondary" /><span className="text-sm">{user.email}</span></div>
-        <div className="flex items-center gap-3"><User size={16} className="text-accent" /><span className="text-sm">{user.gender || "Not specified"}</span></div>
-        <div className="flex items-center gap-3"><Briefcase size={16} className="text-cat-bills" /><span className="text-sm">{user.profession || "Not specified"}</span></div>
+        <div className="flex items-center gap-3"><Mail size={16} className="text-secondary" aria-hidden="true" /><span className="text-sm">{user.email}</span></div>
+        <div className="flex items-center gap-3"><User size={16} className="text-accent" aria-hidden="true" /><span className="text-sm">{user.gender || "Not specified"}</span></div>
+        <div className="flex items-center gap-3"><Briefcase size={16} className="text-cat-bills" aria-hidden="true" /><span className="text-sm">{user.profession || "Not specified"}</span></div>
       </div>
 
       {/* Spending Limit */}
       <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-3">
-        <div className="flex items-center gap-2"><Wallet size={16} className="text-primary" /><span className="text-sm font-medium">Monthly Spending Limit</span></div>
+        <div className="flex items-center gap-2">
+          <Wallet size={16} className="text-primary" aria-hidden="true" />
+          <label htmlFor="spending-limit-input" className="text-sm font-medium">Monthly Spending Limit</label>
+        </div>
         <div className="flex gap-2">
-          <Input type="number" value={limit} onChange={e => setLimit(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="e.g. 10000" />
-          <Button disabled={limitLoading} onClick={handleSaveLimit} className="rounded-xl gradient-primary text-primary-foreground px-4">
+          <Input
+            id="spending-limit-input"
+            aria-label="Monthly spending limit in rupees"
+            type="number"
+            value={limit}
+            onChange={e => setLimit(e.target.value)}
+            className="h-10 rounded-xl"
+            min="0"
+            placeholder="e.g. 10000"
+          />
+          <Button
+            disabled={limitLoading}
+            onClick={handleSaveLimit}
+            aria-label="Save spending limit"
+            className="rounded-xl gradient-primary text-primary-foreground px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
             {limitLoading ? "Saving..." : "Save"}
           </Button>
         </div>
@@ -234,11 +293,36 @@ export default function Profile() {
 
       {/* Savings Goal */}
       <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-3 border-accent/20">
-        <div className="flex items-center gap-2"><Target size={16} className="text-accent" /><span className="text-sm font-medium">Savings Goal</span></div>
-        <Input placeholder="Goal name (e.g. Vacation)" value={savingsGoalName} onChange={e => setSavingsGoalName(e.target.value)} className="h-10 rounded-xl" />
+        <div className="flex items-center gap-2">
+          <Target size={16} className="text-accent" aria-hidden="true" />
+          <label htmlFor="savings-goal-name-input" className="text-sm font-medium">Savings Goal</label>
+        </div>
+        <Input
+          id="savings-goal-name-input"
+          aria-label="Savings Goal Name"
+          placeholder="Goal name (e.g. Emergency Fund)"
+          value={savingsGoalName}
+          onChange={e => setSavingsGoalName(e.target.value)}
+          className="h-10 rounded-xl"
+        />
         <div className="flex gap-2">
-          <Input type="number" value={savingsGoal} onChange={e => setSavingsGoal(e.target.value)} className="h-10 rounded-xl" min="0" placeholder="Target amount" />
-          <Button disabled={goalLoading} onClick={handleSaveSavingsGoal} className="rounded-xl gradient-accent text-accent-foreground px-4">
+          <label htmlFor="savings-goal-amount-input" className="sr-only">Savings Goal Target Amount</label>
+          <Input
+            id="savings-goal-amount-input"
+            aria-label="Savings Goal Target Amount in rupees"
+            type="number"
+            value={savingsGoal}
+            onChange={e => setSavingsGoal(e.target.value)}
+            className="h-10 rounded-xl"
+            min="0"
+            placeholder="Target amount"
+          />
+          <Button
+            disabled={goalLoading}
+            onClick={handleSaveSavingsGoal}
+            aria-label="Save savings goal"
+            className="rounded-xl gradient-accent text-accent-foreground px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
             {goalLoading ? "Saving..." : "Save"}
           </Button>
         </div>
@@ -247,17 +331,28 @@ export default function Profile() {
       {/* Theme Toggle */}
       <div className="glass-card rounded-2xl p-4 flex items-center justify-between animate-fade-in-up stagger-4">
         <div className="flex items-center gap-2">
-          {dark ? <Moon size={16} className="text-secondary" /> : <Sun size={16} className="text-warning" />}
+          {dark ? <Moon size={16} className="text-secondary" aria-hidden="true" /> : <Sun size={16} className="text-warning" aria-hidden="true" />}
           <span className="text-sm font-medium">{dark ? "Dark Mode" : "Light Mode"}</span>
         </div>
-        <button onClick={toggleTheme} className={`w-12 h-6 rounded-full transition-all relative ${dark ? "gradient-accent" : "bg-muted"}`}>
+        <button
+          onClick={toggleTheme}
+          role="switch"
+          aria-checked={dark}
+          aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
+          className={`w-12 h-6 rounded-full transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${dark ? "gradient-accent" : "bg-muted"}`}
+        >
           <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 transition-all shadow ${dark ? "left-6" : "left-0.5"}`} />
         </button>
       </div>
 
       {/* Logout */}
-      <Button onClick={handleLogout} variant="outline" className="w-full h-12 rounded-xl border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground animate-fade-in-up stagger-5">
-        <LogOut className="mr-2" size={18} />
+      <Button
+        onClick={handleLogout}
+        variant="outline"
+        aria-label="Log out of FlowFi"
+        className="w-full h-12 rounded-xl border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground animate-fade-in-up stagger-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+      >
+        <LogOut className="mr-2" size={18} aria-hidden="true" />
         Logout
       </Button>
     </div>

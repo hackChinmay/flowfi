@@ -96,64 +96,71 @@ export default function Signup() {
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Full name */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</label>
+                <label htmlFor="signup-fullname" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</label>
                 <Input
+                  id="signup-fullname"
                   placeholder="John Doe"
                   value={form.fullName}
                   onChange={e => update("fullName", e.target.value)}
                   required
                   data-testid="input-fullname"
-                  className="h-11 rounded-xl bg-background/60"
+                  className="h-11 rounded-xl bg-background/60 focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
               {/* Email */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
+                <label htmlFor="signup-email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
                 <Input
+                  id="signup-email"
                   type="email"
                   placeholder="you@example.com"
                   value={form.email}
                   onChange={e => update("email", e.target.value)}
                   required
                   data-testid="input-email"
-                  className="h-11 rounded-xl bg-background/60"
+                  className="h-11 rounded-xl bg-background/60 focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
               {/* Password */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Password</label>
+                <label htmlFor="signup-password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Password</label>
                 <div className="relative">
                   <Input
+                    id="signup-password"
                     type={showPwd ? "text" : "password"}
                     placeholder="Min. 6 characters"
                     value={form.password}
                     onChange={e => update("password", e.target.value)}
                     required
                     data-testid="input-password"
-                    className="h-11 rounded-xl pr-10 bg-background/60"
+                    className="h-11 rounded-xl pr-10 bg-background/60 focus-visible:ring-2 focus-visible:ring-primary"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPwd(!showPwd)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPwd ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                   >
-                    {showPwd ? <EyeOff size={17} /> : <Eye size={17} />}
+                    {showPwd ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
                   </button>
                 </div>
               </div>
 
               {/* Gender */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Gender</label>
-                <div className="grid grid-cols-3 gap-2">
+                <label id="signup-gender-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Gender</label>
+                <div role="radiogroup" aria-labelledby="signup-gender-label" className="grid grid-cols-3 gap-2">
                   {GENDERS.map(g => (
                     <button
                       key={g}
                       type="button"
+                      role="radio"
+                      aria-checked={form.gender === g}
+                      aria-label={g}
                       onClick={() => update("gender", g)}
-                      className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                      className={`py-2 rounded-xl text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         form.gender === g
                           ? "gradient-primary text-white shadow-sm"
                           : "bg-muted text-muted-foreground hover:bg-muted/70"
@@ -167,11 +174,12 @@ export default function Signup() {
 
               {/* Profession */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profession</label>
+                <label htmlFor="signup-profession" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profession</label>
                 <select
+                  id="signup-profession"
                   value={form.profession}
                   onChange={e => update("profession", e.target.value)}
-                  className="w-full h-11 rounded-xl bg-background/60 border border-border px-3 text-sm text-foreground"
+                  className="w-full h-11 rounded-xl bg-background/60 border border-border px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   {PROFESSIONS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>

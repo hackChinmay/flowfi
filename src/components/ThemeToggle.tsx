@@ -7,8 +7,8 @@ export default function ThemeToggle() {
     <button
       onClick={toggleTheme}
       data-testid="button-theme-toggle"
-      aria-label="Toggle theme"
-      className="w-9 h-9 rounded-xl flex items-center justify-center bg-card/80 border border-border/60 shadow-sm backdrop-blur-sm hover:bg-muted transition-all hover:scale-105 active:scale-95"
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      className="w-9 h-9 rounded-xl flex items-center justify-center bg-card/80 border border-border/60 shadow-sm backdrop-blur-sm hover:bg-muted transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
       {theme === "dark" ? (
         <Sun size={17} className="text-warning" />

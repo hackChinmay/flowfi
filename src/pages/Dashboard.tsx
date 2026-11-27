@@ -147,8 +147,24 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Loading...</p>
+      <div role="status" aria-label="Loading dashboard" className="pb-24 px-4 pt-6 max-w-md mx-auto space-y-5 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-4 w-28 bg-muted rounded-md" />
+            <div className="h-7 w-36 bg-muted rounded-md" />
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-muted" />
+        </div>
+        <div className="h-44 rounded-2xl bg-muted" />
+        <div className="grid grid-cols-4 gap-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 rounded-2xl bg-muted" />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-24 rounded-2xl bg-muted" />
+          <div className="h-24 rounded-2xl bg-muted" />
+        </div>
       </div>
     );
   }
@@ -158,34 +174,35 @@ export default function Dashboard() {
   const MoodIcon = moodData.emoji === "happy" ? Smile : moodData.emoji === "neutral" ? Meh : Frown;
 
   return (
-    <div className="pb-24 px-4 pt-6 max-w-md mx-auto space-y-5">
+    <main className="pb-24 px-4 pt-6 max-w-md mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in-up">
+      <header className="flex items-center justify-between animate-fade-in-up">
         <div>
           <p className="text-sm text-muted-foreground">Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"},</p>
           <h1 className="text-2xl font-bold">{user?.fullName?.split(" ")[0] || "User"} 👋</h1>
         </div>
         <div className="flex items-center gap-2">
           {streak > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/15 text-warning">
-              <Flame size={16} />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/15 text-warning" aria-label={`Current streak: ${streak} days`}>
+              <Flame size={16} aria-hidden="true" />
               <span className="text-sm font-bold">{streak}d</span>
             </div>
           )}
           <ThemeToggle />
         </div>
-      </div>
+      </header>
 
       {/* Database Error Banner with Retry */}
       {txnsError && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-4 flex items-center justify-between text-xs font-semibold gap-3 animate-fade-in-up">
+        <div role="alert" className="bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-4 flex items-center justify-between text-xs font-semibold gap-3 animate-fade-in-up">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} className="shrink-0" />
+            <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
             <span>{txnsError}</span>
           </div>
           <button
             onClick={refresh}
-            className="px-2.5 py-1 bg-destructive/15 hover:bg-destructive/25 text-destructive rounded-lg text-xs font-bold transition-colors shrink-0"
+            aria-label="Retry loading transactions"
+            className="px-2.5 py-1 bg-destructive/15 hover:bg-destructive/25 text-destructive rounded-lg text-xs font-bold transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
           >
             Retry
           </button>
@@ -193,7 +210,7 @@ export default function Dashboard() {
       )}
 
       {/* Balance Card */}
-      <div className="relative gradient-primary rounded-2xl p-5 text-primary-foreground shadow-xl animate-fade-in-up stagger-1 overflow-hidden">
+      <section aria-labelledby="total-balance-heading" className="relative gradient-primary rounded-2xl p-5 text-primary-foreground shadow-xl animate-fade-in-up stagger-1 overflow-hidden">
         {/* Texture overlay */}
         <div
           className="absolute inset-0 opacity-[0.06] pointer-events-none"
@@ -203,11 +220,11 @@ export default function Dashboard() {
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-sm" />
         <div className="absolute -bottom-6 -left-4 w-24 h-24 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-sm opacity-80">Total Balance</p>
+          <p id="total-balance-heading" className="text-sm opacity-80 font-medium">Total Balance</p>
           <p className="text-3xl font-bold mt-1 animate-count-up">{formatCurrency(balance)}</p>
           <div className="flex gap-6 mt-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center" aria-hidden="true">
                 <TrendingUp size={16} />
               </div>
               <div>
@@ -216,7 +233,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center" aria-hidden="true">
                 <TrendingDown size={16} />
               </div>
               <div>
@@ -226,29 +243,34 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-4 gap-2 animate-fade-in-up stagger-2">
+      <section aria-label="Quick Actions" className="grid grid-cols-4 gap-2 animate-fade-in-up stagger-2">
         {[
           { label: "Add Income", emoji: "💰", gradient: "gradient-primary", action: () => navigate("/add") },
           { label: "Add Expense", emoji: "💸", gradient: "gradient-warm", action: () => navigate("/add") },
           { label: "Analytics", emoji: "📊", gradient: "gradient-cool", action: () => navigate("/analytics") },
           { label: "Goals", emoji: "🎯", gradient: "gradient-accent", action: () => navigate("/profile") },
         ].map(item => (
-          <button key={item.label} onClick={item.action} className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all hover:scale-[1.03] active:scale-95">
-            <div className={`w-10 h-10 rounded-xl ${item.gradient} flex items-center justify-center text-lg shadow-sm`}>
+          <button
+            key={item.label}
+            onClick={item.action}
+            aria-label={item.label}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all hover:scale-[1.03] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <div className={`w-10 h-10 rounded-xl ${item.gradient} flex items-center justify-center text-lg shadow-sm`} aria-hidden="true">
               {item.emoji}
             </div>
             <span className="text-[10px] font-medium text-muted-foreground leading-tight text-center">{item.label}</span>
           </button>
         ))}
-      </div>
+      </section>
 
       {/* Money Mood + Spending Limit Row */}
       <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-3">
         <div className={`glass-card rounded-2xl p-4 flex flex-col gap-2 ${moodData.emoji === "happy" ? "border-primary/30" : moodData.emoji === "stressed" ? "border-destructive/30" : "border-warning/30"}`}>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${moodData.emoji === "happy" ? "bg-primary/15 text-primary" : moodData.emoji === "neutral" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${moodData.emoji === "happy" ? "bg-primary/15 text-primary" : moodData.emoji === "neutral" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"}`} aria-hidden="true">
             <MoodIcon size={22} />
           </div>
           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Money Mood</p>
@@ -257,12 +279,19 @@ export default function Dashboard() {
 
         <div className={`glass-card rounded-2xl p-4 flex flex-col gap-2 ${nearLimit ? "border-destructive/30" : ""}`}>
           <div className="flex items-center justify-between">
-            <Wallet size={18} className="text-muted-foreground" />
-            {nearLimit && <AlertTriangle size={14} className="text-warning animate-pulse" />}
+            <Wallet size={18} className="text-muted-foreground" aria-hidden="true" />
+            {nearLimit && <AlertTriangle size={14} className="text-warning animate-pulse" aria-label="Warning: Near spending limit" />}
           </div>
           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Limit</p>
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${nearLimit ? "bg-destructive" : "bg-primary"}`} style={{ width: `${limitPercent}%` }} />
+          <div
+            className="w-full h-2 bg-muted rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={Math.round(limitPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Monthly spending limit usage percentage"
+          >
+            <div className={`h-full rounded-full transition-all ${nearLimit ? "bg-destructive" : "bg-primary"}`} style={{ width: `${limitPercent}%` }} />
           </div>
           <p className="text-xs font-semibold">{Math.round(limitPercent)}% used</p>
         </div>
@@ -270,50 +299,67 @@ export default function Dashboard() {
 
       {/* Savings Goal */}
       {user.savingsGoal && user.savingsGoal > 0 && (
-        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-3 border-accent/20">
+        <section aria-labelledby="savings-goal-heading" className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-3 border-accent/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full gradient-accent flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full gradient-accent flex items-center justify-center" aria-hidden="true">
                 <Target size={16} className="text-accent-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Savings Goal</p>
-                <p className="text-sm font-semibold">{user.savingsGoalName || "My Goal"}</p>
+                <p id="savings-goal-heading" className="text-sm font-semibold">{user.savingsGoalName || "My Goal"}</p>
               </div>
             </div>
             <span className="text-sm font-bold text-accent">{Math.round(savingsProgress)}%</span>
           </div>
-          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className="w-full h-2.5 bg-muted rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={Math.round(savingsProgress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${user.savingsGoalName || "Savings goal"} progress percentage`}
+          >
             <div className="h-full rounded-full gradient-accent transition-all" style={{ width: `${savingsProgress}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">
             {formatCurrency(Math.max(0, balance))} of {formatCurrency(user.savingsGoal)} saved
           </p>
-        </div>
+        </section>
       )}
 
       {/* Weekly Summary */}
-      <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4">
-        <p className="text-sm font-semibold flex items-center gap-2">📊 Weekly Summary</p>
+      <section aria-labelledby="weekly-summary-heading" className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4">
+        <p id="weekly-summary-heading" className="text-sm font-semibold flex items-center gap-2">📊 Weekly Summary</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl p-3 text-center gradient-warm/10 bg-cat-food/10">
             <p className="text-xs text-muted-foreground">Spent</p>
-            <p className="text-lg font-bold text-destructive">{formatCurrency(weeklyData.spent)}</p>
+            <p className="text-lg font-bold text-destructive">
+              <span className="sr-only">Spent: </span>
+              {formatCurrency(weeklyData.spent)}
+            </p>
           </div>
           <div className="rounded-xl p-3 text-center bg-primary/10">
             <p className="text-xs text-muted-foreground">Saved</p>
-            <p className="text-lg font-bold text-primary">{formatCurrency(Math.max(0, weeklyData.saved))}</p>
+            <p className="text-lg font-bold text-primary">
+              <span className="sr-only">Saved: </span>
+              {formatCurrency(Math.max(0, weeklyData.saved))}
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Category Breakdown */}
       {categoryBreakdown.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4">
+        <section aria-labelledby="category-breakdown-heading" className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">🏷️ Top Categories</p>
-            <button onClick={() => navigate("/transactions")} className="text-xs text-primary font-medium flex items-center gap-0.5">
-              See all <ArrowRight size={12} />
+            <p id="category-breakdown-heading" className="text-sm font-semibold">🏷️ Top Categories</p>
+            <button
+              onClick={() => navigate("/transactions")}
+              aria-label="See all category transactions"
+              className="text-xs text-primary font-medium flex items-center gap-0.5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              See all <ArrowRight size={12} aria-hidden="true" />
             </button>
           </div>
           <div className="space-y-2.5">
@@ -323,79 +369,88 @@ export default function Dashboard() {
                   <span className="font-medium">{cat.name}</span>
                   <span className="text-muted-foreground">{formatCurrency(cat.amount)} ({Math.round(cat.percent)}%)</span>
                 </div>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="w-full h-2 bg-muted rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={Math.round(cat.percent)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${cat.name} spending percentage`}
+                >
                   <div className={`h-full rounded-full ${CATEGORY_BG[cat.name] || "bg-cat-other"} transition-all`} style={{ width: `${cat.percent}%` }} />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Financial Insights */}
       {recentTxns.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4 border-secondary/20">
-          <p className="text-sm font-semibold flex items-center gap-2">
-            <Lightbulb size={15} className="text-secondary" /> Smart Insights
+        <section aria-labelledby="smart-insights-heading" className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4 border-secondary/20">
+          <p id="smart-insights-heading" className="text-sm font-semibold flex items-center gap-2">
+            <Lightbulb size={15} className="text-secondary" aria-hidden="true" /> Smart Insights
           </p>
           <div className="space-y-2">
             {nearLimit && (
               <div className="flex items-start gap-2.5 text-xs bg-destructive/8 rounded-xl p-3">
-                <AlertTriangle size={14} className="text-destructive mt-0.5 shrink-0" />
+                <AlertTriangle size={14} className="text-destructive mt-0.5 shrink-0" aria-hidden="true" />
                 <p>You've used <strong>{Math.round(limitPercent)}%</strong> of your monthly spending limit. Consider cutting back on discretionary purchases.</p>
               </div>
             )}
             {categoryBreakdown[0] && (
               <div className="flex items-start gap-2.5 text-xs bg-muted rounded-xl p-3">
-                <span className="text-base shrink-0">💡</span>
+                <span className="text-base shrink-0" aria-hidden="true">💡</span>
                 <p>Your top spending category is <strong>{categoryBreakdown[0].name}</strong> at {Math.round(categoryBreakdown[0].percent)}% of total expenses.</p>
               </div>
             )}
             {income > 0 && expenses / income < 0.5 ? (
               <div className="flex items-start gap-2.5 text-xs bg-primary/8 rounded-xl p-3">
-                <span className="text-base shrink-0">🎉</span>
+                <span className="text-base shrink-0" aria-hidden="true">🎉</span>
                 <p>Great job! You're saving <strong>{Math.round(100 - (expenses / income) * 100)}%</strong> of your income. Keep it up!</p>
               </div>
             ) : income > 0 && (
               <div className="flex items-start gap-2.5 text-xs bg-warning/8 rounded-xl p-3">
-                <span className="text-base shrink-0">📈</span>
+                <span className="text-base shrink-0" aria-hidden="true">📈</span>
                 <p>You're spending <strong>{Math.round((expenses / income) * 100)}%</strong> of your income. Aim to save at least 20%.</p>
               </div>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* How to Save Money Tips */}
       {savingTips.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4 border-emerald-500/20">
+        <section aria-labelledby="saving-tips-heading" className="glass-card rounded-2xl p-4 space-y-3 animate-fade-in-up stagger-4 border-emerald-500/20">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <PiggyBank size={16} className="text-primary" /> How to Save Money
+            <p id="saving-tips-heading" className="text-sm font-semibold flex items-center gap-2">
+              <PiggyBank size={16} className="text-primary" aria-hidden="true" /> How to Save Money
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setTipPage(p => Math.max(0, p - 1))}
                 disabled={tipPage === 0}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all"
+                aria-label="Previous saving tip"
+                className="w-7 h-7 min-w-[28px] min-h-[28px] rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={14} aria-hidden="true" />
               </button>
-              <span className="text-xs text-muted-foreground">{tipPage + 1}/{savingTips.length}</span>
+              <span className="text-xs text-muted-foreground" aria-live="polite">{tipPage + 1}/{savingTips.length}</span>
               <button
                 onClick={() => setTipPage(p => Math.min(savingTips.length - 1, p + 1))}
                 disabled={tipPage === savingTips.length - 1}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all"
+                aria-label="Next saving tip"
+                className="w-7 h-7 min-w-[28px] min-h-[28px] rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={14} aria-hidden="true" />
               </button>
             </div>
           </div>
 
           {/* Current tip */}
           {savingTips[tipPage] && (
-            <div className={`rounded-xl p-3.5 flex items-start gap-3 ${savingTips[tipPage].color}`}>
-              <span className="text-2xl shrink-0">{savingTips[tipPage].icon}</span>
+            <div className={`rounded-xl p-3.5 flex items-start gap-3 ${savingTips[tipPage].color}`} tabIndex={0} aria-label={`Tip: ${savingTips[tipPage].title}. ${savingTips[tipPage].desc}`}>
+              <span className="text-2xl shrink-0" aria-hidden="true">{savingTips[tipPage].icon}</span>
               <div className="space-y-0.5">
                 <p className="text-sm font-semibold">{savingTips[tipPage].title}</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{savingTips[tipPage].desc}</p>
@@ -404,39 +459,55 @@ export default function Dashboard() {
           )}
 
           {/* Dot indicator */}
-          <div className="flex justify-center gap-1.5">
+          <div className="flex justify-center gap-1.5" role="tablist" aria-label="Tip pagination dots">
             {savingTips.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setTipPage(i)}
-                className={`rounded-full transition-all ${i === tipPage ? "w-4 h-1.5 bg-primary" : "w-1.5 h-1.5 bg-muted-foreground/30"}`}
+                role="tab"
+                aria-selected={i === tipPage}
+                aria-label={`Go to saving tip ${i + 1}`}
+                className={`rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${i === tipPage ? "w-4 h-1.5 bg-primary" : "w-1.5 h-1.5 bg-muted-foreground/30"}`}
               />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Recent Transactions */}
-      <div className="space-y-3 animate-fade-in-up stagger-5">
+      <section aria-labelledby="recent-txns-heading" className="space-y-3 animate-fade-in-up stagger-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Transactions</h2>
+          <h2 id="recent-txns-heading" className="text-sm font-semibold">Recent Transactions</h2>
           {recentTxns.length > 0 && (
-            <button onClick={() => navigate("/transactions")} className="text-xs text-primary font-medium flex items-center gap-0.5">
-              View all <ArrowRight size={12} />
+            <button
+              onClick={() => navigate("/transactions")}
+              aria-label="View all transactions"
+              className="text-xs text-primary font-medium flex items-center gap-0.5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              View all <ArrowRight size={12} aria-hidden="true" />
             </button>
           )}
         </div>
         {recentTxns.length === 0 ? (
           <div className="glass-card rounded-2xl p-8 text-center space-y-2">
-            <p className="text-3xl">💸</p>
+            <p className="text-3xl" aria-hidden="true">💸</p>
             <p className="text-sm text-muted-foreground">No transactions yet</p>
-            <button onClick={() => navigate("/add")} className="text-sm text-primary font-semibold">Add your first one →</button>
+            <button
+              onClick={() => navigate("/add")}
+              className="text-sm text-primary font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              Add your first one →
+            </button>
           </div>
         ) : (
           recentTxns.map(txn => (
             <div key={txn.id} className="glass-card rounded-xl p-3 flex items-center justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${CATEGORY_CSS[txn.category] || "bg-muted text-muted-foreground"}`}>
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${CATEGORY_CSS[txn.category] || "bg-muted text-muted-foreground"}`}
+                  role="img"
+                  aria-label={txn.category}
+                >
                   {getCategoryEmoji(txn.category)}
                 </div>
                 <div>
@@ -445,13 +516,15 @@ export default function Dashboard() {
                 </div>
               </div>
               <p className={`text-sm font-bold ${txn.type === "income" ? "text-primary" : "text-destructive"}`}>
-                {txn.type === "income" ? "+" : "-"}{formatCurrency(txn.amount)}
+                <span className="sr-only">{txn.type === "income" ? "Income: +" : "Expense: -"}</span>
+                <span aria-hidden="true">{txn.type === "income" ? "+" : "-"}</span>
+                {formatCurrency(txn.amount)}
               </p>
             </div>
           ))
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 

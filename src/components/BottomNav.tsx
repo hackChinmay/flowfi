@@ -14,7 +14,7 @@ export default function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/50 safe-bottom shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
+    <nav aria-label="Main Navigation" className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/50 safe-bottom shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
       <div className="max-w-md mx-auto flex justify-around items-center h-16 px-1">
         {NAV_ITEMS.map(item => {
           const active = location.pathname === item.path;
@@ -23,12 +23,14 @@ export default function BottomNav() {
               key={item.path}
               onClick={() => navigate(item.path)}
               data-testid={`nav-${item.label.toLowerCase()}`}
-              className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200 ${
+              aria-label={item.isAdd ? "Add new transaction" : item.label}
+              aria-current={active ? "page" : undefined}
+              className={`relative flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 min-w-[44px] min-h-[44px] rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 item.isAdd ? "relative -top-4" : ""
               }`}
             >
               {item.isAdd ? (
-                <div className="w-13 h-13 w-[52px] h-[52px] rounded-full gradient-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:scale-105 active:scale-95 transition-transform">
+                <div className="w-[52px] h-[52px] rounded-full gradient-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:scale-105 active:scale-95 transition-transform">
                   <PlusCircle size={26} className="text-white" />
                 </div>
               ) : (
@@ -38,7 +40,7 @@ export default function BottomNav() {
                     <div className="absolute inset-0 bg-primary/10 rounded-xl" />
                   )}
                   <div className={`relative transition-all duration-200 ${active ? "text-primary scale-110" : "text-muted-foreground"}`}>
-                    <item.icon size={21} strokeWidth={active ? 2.5 : 1.8} />
+                    <item.icon size={21} strokeWidth={active ? 2.5 : 1.8} aria-hidden="true" />
                   </div>
                   <span className={`text-[10px] font-semibold relative transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}>
                     {item.label}
