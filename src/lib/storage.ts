@@ -81,6 +81,10 @@ export async function signIn(email: string, password: string): Promise<User> {
 
 export function signOut() {
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem("auth_password");
+  localStorage.removeItem("auth_email");
+  localStorage.removeItem(USERS_KEY);
+  localStorage.removeItem(TRANSACTIONS_KEY);
 }
 
 function setSession(userId: string) {

@@ -37,9 +37,9 @@ export default function Login() {
     try {
       await signIn(email, password);
 
-      // Clean up any legacy insecure plaintext password storage
+      // Clean up any legacy insecure plaintext storage
       localStorage.removeItem("auth_password");
-      localStorage.setItem("auth_email", email);
+      localStorage.removeItem("auth_email");
 
       // Securely store credentials in device keychain/keystore via Capacitor NativeBiometric if available
       try {

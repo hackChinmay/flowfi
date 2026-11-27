@@ -1,5 +1,5 @@
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/contexts/TransactionContext";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +30,7 @@ export default function Profile() {
   const [limitLoading, setLimitLoading] = useState(false);
   const [goalLoading, setGoalLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const { transactions: txns } = useTransactions();
 
   useEffect(() => {
@@ -51,9 +52,21 @@ export default function Profile() {
     return Math.max(calculateStreakFromTransactions(txns), getStreak(user.uid));
   }, [txns, user]);
 
-  const handleLogout = () => { 
-    signOut(); 
-    navigate("/"); // 👈 FIXED (landing page)
+  const handleLogout = async () => {
+    if (logoutLoading) return;
+    try {
+      setLogoutLoading(true);
+      await signOut();
+      navigate("/");
+    } catch (err) {
+      toast({
+        title: "Logout Failed",
+        description: getErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   const handleSaveLimit = async () => {
@@ -67,6 +80,9 @@ export default function Profile() {
 
     try {
       setLimitLoading(true);
+      if (auth.currentUser?.uid !== user.uid) {
+        throw new Error("Session mismatch: Save aborted because user account changed");
+      }
       await updateDoc(doc(db, "users", user.uid), {
         spendingLimit: val,
       });
@@ -94,6 +110,9 @@ export default function Profile() {
 
     try {
       setGoalLoading(true);
+      if (auth.currentUser?.uid !== user.uid) {
+        throw new Error("Session mismatch: Save aborted because user account changed");
+      }
       await updateDoc(doc(db, "users", user.uid), {
         savingsGoal: val,
         savingsGoalName: savingsGoalName.trim() || "Emergency Fund",
@@ -348,12 +367,13 @@ export default function Profile() {
       {/* Logout */}
       <Button
         onClick={handleLogout}
+        disabled={logoutLoading}
         variant="outline"
         aria-label="Log out of FlowFi"
         className="w-full h-12 rounded-xl border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground animate-fade-in-up stagger-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
       >
         <LogOut className="mr-2" size={18} aria-hidden="true" />
-        Logout
+        {logoutLoading ? "Logging out..." : "Logout"}
       </Button>
     </div>
   );

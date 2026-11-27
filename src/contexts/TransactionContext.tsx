@@ -44,18 +44,28 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Immediately isolate accounts: purge previous user's transactions before attaching new listener
+    setTransactions([]);
     setLoading(true);
     setError(null);
+
+    const activeUid = user.uid;
+    let isSubscribed = true;
 
     // Single coordinated real-time Firestore listener for the authenticated user session
     const q = query(
       collection(db, "transactions"),
-      where("userId", "==", user.uid)
+      where("userId", "==", activeUid)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        // Discard late-arriving snapshots if component unmounted or active user switched
+        if (!isSubscribed || user?.uid !== activeUid) {
+          return;
+        }
+
         const rawDocs = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
           const rawDate = d.date || d.createdAt;
@@ -85,48 +95,66 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           return tB - tA;
         });
 
-        setTransactions(rawDocs);
-        setError(null);
-        setLoading(false);
+        if (isSubscribed && user?.uid === activeUid) {
+          setTransactions(rawDocs);
+          setError(null);
+          setLoading(false);
+        }
       },
       (err) => {
-        logError(err, { operation: "onSnapshot_transactions", userId: user.uid });
+        if (!isSubscribed || user?.uid !== activeUid) {
+          return;
+        }
+        logError(err, { operation: "onSnapshot_transactions", userId: activeUid });
         setError(getErrorMessage(err));
         setLoading(false);
       }
     );
 
     return () => {
+      isSubscribed = false;
       unsubscribe();
     };
   }, [user?.uid, retryTrigger]);
 
   const addTransaction = useCallback(async (data: any) => {
+    const activeUid = user?.uid;
+    if (!activeUid) {
+      throw new Error("Unauthorized: Cannot add transaction without an active session");
+    }
     try {
-      await withRetry(() => dbAddTransaction(data), { maxRetries: 2 });
+      await withRetry(() => dbAddTransaction(data, activeUid), { maxRetries: 2 });
     } catch (err) {
       logError(err, { operation: "addTransaction", amount: data?.amount });
       throw err;
     }
-  }, []);
+  }, [user?.uid]);
 
   const updateTransaction = useCallback(async (id: string, updates: Record<string, any>) => {
+    const activeUid = user?.uid;
+    if (!activeUid) {
+      throw new Error("Unauthorized: Cannot update transaction without an active session");
+    }
     try {
-      await withRetry(() => dbUpdateTransaction(id, updates), { maxRetries: 2 });
+      await withRetry(() => dbUpdateTransaction(id, updates, activeUid), { maxRetries: 2 });
     } catch (err) {
       logError(err, { operation: "updateTransaction", id });
       throw err;
     }
-  }, []);
+  }, [user?.uid]);
 
   const deleteTransaction = useCallback(async (id: string) => {
+    const activeUid = user?.uid;
+    if (!activeUid) {
+      throw new Error("Unauthorized: Cannot delete transaction without an active session");
+    }
     try {
-      await withRetry(() => dbDeleteTransaction(id), { maxRetries: 2 });
+      await withRetry(() => dbDeleteTransaction(id, activeUid), { maxRetries: 2 });
     } catch (err) {
       logError(err, { operation: "deleteTransaction", id });
       throw err;
     }
-  }, []);
+  }, [user?.uid]);
 
   // Memoize context value to prevent downstream consumers from re-rendering unless data changes
   const contextValue = useMemo(

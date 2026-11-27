@@ -20,10 +20,13 @@ import { roundCurrency } from "./financial";
 const db = getFirestore(app);
 
 // Add transaction with enforced authenticated user ownership and monetary rounding
-export const addTransaction = async (data: any) => {
+export const addTransaction = async (data: any, expectedUid?: string) => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to add transactions");
+  }
+  if (expectedUid && currentUid !== expectedUid) {
+    throw new Error("Account switched: Transaction aborted because authenticated session changed");
   }
   const safeAmount = roundCurrency(data.amount);
   if (safeAmount <= 0) {
@@ -37,10 +40,13 @@ export const addTransaction = async (data: any) => {
 };
 
 // Update transaction with authenticated owner enforcement and immutable field protection
-export const updateTransaction = async (id: string, updates: Record<string, any>) => {
+export const updateTransaction = async (id: string, updates: Record<string, any>, expectedUid?: string) => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to update transactions");
+  }
+  if (expectedUid && currentUid !== expectedUid) {
+    throw new Error("Account switched: Update aborted because authenticated session changed");
   }
   if (!id || typeof id !== "string") {
     throw new Error("Invalid transaction ID");
@@ -59,10 +65,13 @@ export const updateTransaction = async (id: string, updates: Record<string, any>
 };
 
 // Delete transaction
-export const deleteTransaction = async (id: string) => {
+export const deleteTransaction = async (id: string, expectedUid?: string) => {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) {
     throw new Error("Unauthorized: User must be signed in to delete transactions");
+  }
+  if (expectedUid && currentUid !== expectedUid) {
+    throw new Error("Account switched: Delete aborted because authenticated session changed");
   }
   if (!id || typeof id !== "string") {
     throw new Error("Invalid transaction ID");

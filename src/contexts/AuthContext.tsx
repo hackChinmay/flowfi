@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -8,6 +8,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
 } from "firebase/auth";
+import { NativeBiometric } from "capacitor-native-biometric";
 
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -45,13 +46,17 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const authSessionRef = useRef<number>(0);
 
-  // 🔥 Handle redirect result (for APK)
+  // Handle redirect result (for mobile/APK)
   useEffect(() => {
     getRedirectResult(auth)
       .then((result) => {
         if (result?.user) {
-          console.log("Google redirect success:", result.user);
+          // Sanitized notification without exposing auth token details
+          if (process.env.NODE_ENV !== "production") {
+            console.log("Google redirect sign-in completed successfully");
+          }
         }
       })
       .catch((error) => {
@@ -59,22 +64,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // 🔥 Auth state listener
+  // Coordinated auth state and real-time profile listener
   useEffect(() => {
     let unsubscribeFirestore: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Clean up previous Firestore listener on auth change
+      // Invalidate any in-flight asynchronous operations from previous user
+      authSessionRef.current += 1;
+      const currentSessionId = authSessionRef.current;
+
+      // Clean up previous Firestore listener immediately on auth change
       if (unsubscribeFirestore) {
         unsubscribeFirestore();
         unsubscribeFirestore = undefined;
       }
 
       if (firebaseUser) {
+        // Immediately establish baseline authenticated identity and resolve loading
+        // to prevent premature redirection or flashes of stale data
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          fullName: firebaseUser.displayName || "",
+          photoURL: firebaseUser.photoURL || null,
+        });
+        setLoading(false);
+
         const userRef = doc(db, "users", firebaseUser.uid);
 
         try {
-          // Ensure user exists in Firestore
+          // Ensure user document exists in Firestore
           await setDoc(
             userRef,
             {
@@ -88,10 +107,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Failed to sync user document:", err);
         }
 
+        // Check if session changed while setDoc was pending
+        if (currentSessionId !== authSessionRef.current) {
+          return;
+        }
+
         // Real-time sync with permission/error callback
         unsubscribeFirestore = onSnapshot(
           userRef,
           (snap) => {
+            // Discard stale snapshot if user switched or logged out
+            if (currentSessionId !== authSessionRef.current) {
+              return;
+            }
+
             const data = snap.data() || {};
 
             setUser({
@@ -110,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
           },
           (error) => {
+            if (currentSessionId !== authSessionRef.current) {
+              return;
+            }
             console.error("Firestore user profile listener error:", error);
             // Fallback to basic auth identity on permission error or offline state
             setUser({
@@ -122,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         );
       } else {
+        // User is logged out
         setUser(null);
         setLoading(false);
       }
@@ -178,18 +211,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 🔓 Logout with credential cleanup (stable reference)
+  // 🔓 Logout with comprehensive credential cleanup and strict error handling
   const signOut = useCallback(async () => {
     try {
-      // Purge any cached authentication credentials to prevent account-switching leakage
+      // Purge all user-specific authentication credentials and obsolete session data
       localStorage.removeItem("auth_password");
+      localStorage.removeItem("auth_email");
       localStorage.removeItem("flowfi_session");
+      localStorage.removeItem("flowfi_users");
+      localStorage.removeItem("flowfi_transactions");
+
+      // Safely delete native biometric credentials if present
+      try {
+        await NativeBiometric.deleteCredentials({ server: "flowfi.app" });
+      } catch {
+        // Ignored on web or if biometrics were not configured
+      }
+
+      // Terminate the Firebase Auth session
       await firebaseSignOut(auth);
+
+      // Successfully logged out: reset user state
+      setUser(null);
+      setLoading(false);
     } catch (err) {
       console.error("Sign-out error:", err);
+      // DO NOT falsely present user as logged out on failure!
       throw err;
-    } finally {
-      setUser(null);
     }
   }, []);
 

@@ -70,7 +70,7 @@ export default function AddExpense() {
         description: (description || "").trim(),
         createdAt: serverTimestamp(),
         date: new Date().toISOString(),
-      });
+      }, user.uid);
 
       updateStreak(user.uid);
 
