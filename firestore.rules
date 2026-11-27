@@ -206,8 +206,8 @@ service cloud.firestore {
                       areImmutableFieldsUnchanged(['email']);
       allow delete: if isOwner(userId);
 
-      // Recursive match for any user subcollections (e.g. users/{userId}/budgets/{id})
-      match /{allPaths=**} {
+      // Child subcollections (1 or more segments, e.g. users/{userId}/private/{id})
+      match /{subcollection}/{docId=**} {
         allow read, write: if isOwner(userId);
       }
     }
