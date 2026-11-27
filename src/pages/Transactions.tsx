@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useTransactions } from "@/contexts/TransactionContext";
 import type { Transaction } from "@/lib/storage";
 import { formatCurrency, CATEGORY_CSS } from "@/lib/storage";
 import {
@@ -14,24 +15,20 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  deleteDoc,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
-
 export default function Transactions() {
   const { user } = useAuth();
+  const { transactions: txns, updateTransaction, deleteTransaction } = useTransactions();
   const { toast } = useToast();
 
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [search, setSearch] = useState("");
-  const [txns, setTxns] = useState<Transaction[]>([]);
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset pagination when search or filter changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filter, search]);
 
   // Editing state
   const [editingTxn, setEditingTxn] = useState<Transaction | null>(null);
@@ -41,62 +38,8 @@ export default function Transactions() {
   const [editDescription, setEditDescription] = useState("");
   const [editLoading, setEditLoading] = useState(false);
 
-  // ✅ REALTIME FIRESTORE LISTENER
-  useEffect(() => {
-    if (!user?.uid) {
-      setTxns([]);
-      return;
-    }
-
-    const q = query(
-      collection(db, "transactions"),
-      where("userId", "==", user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => {
-          const d = doc.data();
-          const rawDate = d.date || d.createdAt;
-          let dateStr = new Date().toISOString();
-
-          if (rawDate?.seconds) {
-            dateStr = new Date(rawDate.seconds * 1000).toISOString();
-          } else if (typeof rawDate === "string") {
-            dateStr = rawDate;
-          }
-
-          return {
-            id: doc.id,
-            userId: d.userId,
-            type: d.type,
-            amount: Number(d.amount || 0),
-            category: d.category || "Other",
-            description: d.description || "",
-            date: dateStr,
-          };
-        }) as Transaction[];
-
-        // Sort descending by date (newest first)
-        data.sort((a, b) => {
-          const tA = new Date(a.date).getTime() || 0;
-          const tB = new Date(b.date).getTime() || 0;
-          return tB - tA;
-        });
-
-        setTxns(data);
-      },
-      (error) => {
-        console.error("Error fetching transactions:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // ✅ FILTER + GROUP (OPTIMIZED)
-  const { filteredTxns, grouped } = useMemo(() => {
+  // ✅ FILTER + PAGINATE + GROUP (OPTIMIZED)
+  const { filteredTxns, pagedTxns, grouped } = useMemo(() => {
     let all = [...txns];
 
     if (filter !== "all") {
@@ -112,9 +55,10 @@ export default function Transactions() {
       );
     }
 
-    const grouped: Record<string, Transaction[]> = {};
+    const paged = all.slice(0, visibleCount);
+    const groupedMap: Record<string, Transaction[]> = {};
 
-    all.forEach((t) => {
+    paged.forEach((t) => {
       const d = new Date(t.date);
       const key = isNaN(d.getTime())
         ? "Other"
@@ -124,17 +68,17 @@ export default function Transactions() {
             year: "numeric",
           });
 
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(t);
+      if (!groupedMap[key]) groupedMap[key] = [];
+      groupedMap[key].push(t);
     });
 
-    return { filteredTxns: all, grouped };
-  }, [txns, filter, search]);
+    return { filteredTxns: all, pagedTxns: paged, grouped: groupedMap };
+  }, [txns, filter, search, visibleCount]);
 
   // ✅ DELETE FROM FIRESTORE
   const handleDelete = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "transactions", id));
+      await deleteTransaction(id);
       toast({ title: "Deleted", description: "Transaction removed" });
     } catch (err) {
       toast({ title: "Error", description: "Failed to delete transaction", variant: "destructive" });
@@ -164,7 +108,7 @@ export default function Transactions() {
 
     try {
       setEditLoading(true);
-      await updateDoc(doc(db, "transactions", editingTxn.id), {
+      await updateTransaction(editingTxn.id, {
         amount: safeAmount,
         type: editType,
         category: editCategory,
@@ -374,6 +318,19 @@ export default function Transactions() {
               ))}
             </div>
           ))}
+
+          {visibleCount < filteredTxns.length && (
+            <div className="pt-2 text-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                className="w-full rounded-xl py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Load More Transactions ({filteredTxns.length - visibleCount} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,4 +1,19 @@
-import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+  deleteDoc,
+  doc,
+  orderBy,
+  limit,
+  startAfter,
+  QueryConstraint,
+  DocumentSnapshot
+} from "firebase/firestore";
 import { app, auth } from "./firebase";
 import { roundCurrency } from "./financial";
 
@@ -65,6 +80,121 @@ export const getTransactions = async (userId: string) => {
     id: doc.id,
     ...doc.data()
   }));
+};
+
+// Optimized query: Fetch recent transactions scoped to user with limit
+export const getRecentTransactions = async (userId: string, count: number = 5) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid || currentUid !== userId) {
+    throw new Error("Unauthorized: Cannot access another user's transactions");
+  }
+  try {
+    const q = query(
+      collection(db, "transactions"),
+      where("userId", "==", userId),
+      orderBy("date", "desc"),
+      limit(count)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (err: any) {
+    // Graceful fallback if composite index is still building
+    console.warn("Falling back to client-filtered recent transactions:", err.message);
+    const q = query(collection(db, "transactions"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    docs.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    return docs.slice(0, count);
+  }
+};
+
+// Optimized query: Server-side pagination with limit and startAfter
+export const getPaginatedTransactions = async (
+  userId: string,
+  pageSize: number = 20,
+  lastDoc?: DocumentSnapshot,
+  typeFilter?: "income" | "expense"
+) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid || currentUid !== userId) {
+    throw new Error("Unauthorized: Cannot access another user's transactions");
+  }
+  try {
+    const constraints: QueryConstraint[] = [
+      where("userId", "==", userId),
+    ];
+    if (typeFilter) {
+      constraints.push(where("type", "==", typeFilter));
+    }
+    constraints.push(orderBy("date", "desc"));
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
+    }
+    constraints.push(limit(pageSize));
+
+    const q = query(collection(db, "transactions"), ...constraints);
+    const snapshot = await getDocs(q);
+    return {
+      transactions: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === pageSize
+    };
+  } catch (err: any) {
+    console.warn("Falling back to client-filtered paginated transactions:", err.message);
+    const q = query(collection(db, "transactions"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+    let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (typeFilter) {
+      docs = docs.filter((d: any) => d.type === typeFilter);
+    }
+    docs.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    return {
+      transactions: docs.slice(0, pageSize),
+      lastDoc: null,
+      hasMore: docs.length > pageSize
+    };
+  }
+};
+
+// Optimized query: Date range filtering (for monthly and yearly reports)
+export const getTransactionsByDateRange = async (
+  userId: string,
+  startDate: string,
+  endDate: string
+) => {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid || currentUid !== userId) {
+    throw new Error("Unauthorized: Cannot access another user's transactions");
+  }
+  try {
+    const q = query(
+      collection(db, "transactions"),
+      where("userId", "==", userId),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate),
+      orderBy("date", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (err: any) {
+    console.warn("Falling back to client-filtered date range:", err.message);
+    const q = query(collection(db, "transactions"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const startMs = new Date(startDate).getTime();
+    const endMs = new Date(endDate).getTime();
+    return docs.filter((d: any) => {
+      const t = new Date(d.date || 0).getTime();
+      return t >= startMs && t <= endMs;
+    });
+  }
+};
+
+// Optimized query: Monthly transactions helper
+export const getMonthlyTransactions = async (userId: string, year: number, month: number) => {
+  const startDate = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
+  const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+  return getTransactionsByDateRange(userId, startDate, endDate);
 };
 // ✅ CATEGORY DATA
 

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useTransactions } from "@/contexts/TransactionContext";
 import { CATEGORY_CSS, CATEGORY_BG, getStreak, calculateStreakFromTransactions } from "@/lib/storage";
 import {
   formatCurrency,
@@ -16,52 +17,13 @@ import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, AlertTriangle, Smile, Meh, Frown, Flame, Target, ArrowRight, Lightbulb, PiggyBank, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "@/components/ThemeToggle";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  console.log("LOGGED USER:", user?.uid);
+  const { transactions: txns } = useTransactions();
   const navigate = useNavigate();
 
   const [tipPage, setTipPage] = useState(0);
-  const [txns, setTxns] = useState<any[]>([]);
-  
-  useEffect(() => {
-    if (!user?.uid) {
-      setTxns([]);
-      return;
-    }
-
-    const q = query(
-      collection(db, "transactions"),
-      where("userId", "==", user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => {
-          const d = doc.data();
-
-          return {
-            id: doc.id,
-            ...d,
-            date: d.date?.seconds
-              ? new Date(d.date.seconds * 1000).toISOString()
-              : d.date ?? new Date().toISOString(),
-          };
-        });
-
-        setTxns(data);
-      },
-      (error) => {
-        console.error("Dashboard transactions listener error:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
 
 
   const { income, expenses, balance, currentMonthExpenses, spendingLimit, recentTxns, moodData, weeklyData, categoryBreakdown, streak, savingsProgress, savingTips } = useMemo(() => {

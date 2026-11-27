@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CATEGORY_CSS } from "@/lib/db";
+import { addTransaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CATEGORY_CSS } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Sparkles } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { serverTimestamp } from "firebase/firestore";
 import { updateStreak } from "@/lib/storage";
 import { roundCurrency } from "@/lib/financial";
 
@@ -63,8 +62,7 @@ export default function AddExpense() {
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "transactions"), {
-        userId: user.uid,
+      await addTransaction({
         type,
         amount: parsedAmount,
         category,

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { useTransactions } from "@/contexts/TransactionContext";
 import {
   formatCurrency,
   calculateTotalIncome,
@@ -30,38 +29,8 @@ type TabType = "monthly" | "categories";
 
 export default function Analytics() {
   const { user } = useAuth();
+  const { transactions: txns } = useTransactions();
   const [tab, setTab] = useState<TabType>("monthly");
-  const [txns, setTxns] = useState<any[]>([]);
-
-  // 🔥 FIRESTORE REAL-TIME DATA
-  useEffect(() => {
-    if (!user?.uid) {
-      setTxns([]);
-      return;
-    }
-
-    const q = query(
-      collection(db, "transactions"),
-      where("userId", "==", user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as any),
-        }));
-
-        setTxns(data);
-      },
-      (error) => {
-        console.error("Analytics transactions listener error:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
 
   // 🧠 CALCULATIONS WITH FINANCIAL INTEGRITY
   const {

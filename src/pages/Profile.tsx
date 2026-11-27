@@ -1,6 +1,7 @@
-import { doc, updateDoc, collection, query, where, onSnapshot } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTransactions } from "@/contexts/TransactionContext";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Moon, Sun, User, Mail, Briefcase, Wallet, Pencil, Check, X, Target, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ export default function Profile() {
   const [editForm, setEditForm] = useState({ fullName: "", gender: "Male", profession: PROFESSIONS[0] });
   const [savingsGoal, setSavingsGoal] = useState(user?.savingsGoal ? user.savingsGoal.toString() : "5000");
   const [savingsGoalName, setSavingsGoalName] = useState(user?.savingsGoalName || "Emergency Fund");
-  const [txns, setTxns] = useState<any[]>([]);
+  const { transactions: txns } = useTransactions();
 
   useEffect(() => {
     if (user) {
@@ -39,35 +40,6 @@ export default function Profile() {
         setSavingsGoalName(user.savingsGoalName);
       }
     }
-  }, [user]);
-
-  // Real-time transactions for streak calculation
-  useEffect(() => {
-    if (!user?.uid) {
-      setTxns([]);
-      return;
-    }
-
-    const q = query(
-      collection(db, "transactions"),
-      where("userId", "==", user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setTxns(data);
-      },
-      (error) => {
-        console.error("Profile transactions listener error:", error);
-      }
-    );
-
-    return () => unsubscribe();
   }, [user]);
 
   const streak = useMemo(() => {
