@@ -11,7 +11,7 @@ service cloud.firestore {
     // Document ID: {userId} (Must match Firebase Auth UID)
     // Fields:
     //   - fullName: string (required, 0-100 chars) - User's display name
-    //   - email: string (required, valid email format, <= 100 chars) - User's email
+    //   - email: string (required, immutable on update, valid email format, <= 100 chars) - User's email
     //   - photoURL: string or null (optional, valid URL if string, <= 500 chars) - Avatar URL
     //   - gender: string (optional, 'Male' | 'Female' | 'Other' | 'Not specified')
     //   - profession: string (optional, 'Student' | 'Developer' | 'Designer' | 'Entrepreneur' | 'Freelancer' | 'Manager' | 'Other' | 'Not specified')
@@ -29,7 +29,7 @@ service cloud.firestore {
     //   - category: string (required, valid category name) - Category of transaction
     //   - description: string (optional, 0-500 chars) - Transaction notes
     //   - createdAt: timestamp (optional, immutable) - Server creation timestamp
-    //   - date: string (ISO 8601) or timestamp (optional) - Transaction date
+    //   - date: string (ISO 8601 date-time or date) or timestamp (optional) - Transaction date
     //
     // Collection: budgets (Dedicated top-level collection)
     // Document ID: {budgetId}
@@ -98,11 +98,12 @@ service cloud.firestore {
         (url.matches("^https://.*") || url.matches("^http://.*"));
     }
 
-    // Validate ISO 8601 date string format (e.g. YYYY-MM-DDTHH:MM:SS.sssZ)
+    // Validate ISO 8601 date string format (both YYYY-MM-DDTHH:MM:SS.sssZ and YYYY-MM-DD)
     function isValidDateString(dateStr) {
       return dateStr is string &&
         dateStr.size() <= 40 &&
-        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+        (dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$") ||
+         dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$"));
     }
 
     // ===============================================================
@@ -195,8 +196,14 @@ service cloud.firestore {
     // 1. Users collection: strictly owner-only read & write (protects PII & financial settings)
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow create: if isOwner(userId) &&
+                      isValidUser(request.resource.data) &&
+                      (request.resource.data.email == request.auth.token.email ||
+                       request.resource.data.email == null ||
+                       !('email' in request.auth.token));
+      allow update: if isOwner(userId) &&
+                      isValidUser(request.resource.data) &&
+                      areImmutableFieldsUnchanged(['email']);
       allow delete: if isOwner(userId);
 
       // Recursive match for any user subcollections (e.g. users/{userId}/budgets/{id})
